@@ -10,6 +10,7 @@ import {
 import { PageWrapper } from '../../components/layout/PageWrapper';
 import srkrEmblem from '../../assets/srkr-emblem.png';
 import { useAuth } from '../../context/AuthContext';
+import { VerifiedActivityBadge } from '../../components/shared/VerifiedActivityBadge';
 
 /* ── Shared style helpers ── */
 const card = (extra: object = {}): React.CSSProperties => ({
@@ -305,7 +306,10 @@ export default function Profile() {
 
         {/* Name + Info chips */}
         <div className="profile-info-block" style={{ flex: 1, minWidth: 240 }}>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: '#0F172A', margin: '0 0 6px' }}>{user?.name || fullName}</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <h1 style={{ fontSize: 22, fontWeight: 800, color: '#0F172A', margin: 0 }}>{user?.name || fullName}</h1>
+            <VerifiedActivityBadge student={user} studentId={user?.userId || user?.id} rollNumber={(user as any)?.rollNumber} size="md" />
+          </div>
           <span style={{
             display: 'inline-block', padding: '3px 12px', borderRadius: 20,
             background: 'rgba(249,115,22,0.1)', color: '#F97316', fontSize: 12, fontWeight: 700, marginBottom: 16,

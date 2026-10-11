@@ -26,6 +26,10 @@ function formatUserResponse(user: {
     ...(user.avatarUrl   && { avatarUrl:   user.avatarUrl   }),
     ...(user.phone       && { phone:       user.phone       }),
     ...(user.counselorId && { counselorId: user.counselorId }),
+    ...(user.studentActivities && {
+      studentActivities: user.studentActivities,
+      hasActivities: user.studentActivities.length > 0,
+    }),
   };
 }
 
@@ -525,6 +529,11 @@ router.get('/me', verifyToken, async (req: Request, res: Response) => {
           { userId: tokenUser.id },
           { email:  { equals: tokenUser.email, mode: 'insensitive' } },
         ],
+      },
+      include: {
+        studentActivities: {
+          where: { isActive: true },
+        },
       },
     });
     if (!user) {

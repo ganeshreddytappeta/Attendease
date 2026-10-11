@@ -6,6 +6,7 @@ import { StatusBadge } from './StatusBadge';
 import { formatDate, formatTime, formatSubmittedAt } from '../../lib/utils';
 import type { AttendanceRequest } from '../../types';
 import { ProofPreviewModal } from './ProofPreviewModal';
+import { VerifiedActivityBadge } from './VerifiedActivityBadge';
 
 interface RequestOverviewModalProps {
   request: AttendanceRequest | null;
@@ -85,9 +86,12 @@ export function RequestOverviewModal({
                 role="student"
               />
               <div className="min-w-0 flex-1">
-                <h3 className="text-[15px] font-bold text-slate-900 leading-snug truncate">
-                  {request.student?.name}
-                </h3>
+                <div className="flex items-center gap-1.5">
+                  <h3 className="text-[15px] font-bold text-slate-900 leading-snug truncate">
+                    {request.student?.name}
+                  </h3>
+                  <VerifiedActivityBadge student={request.student} studentId={request.studentId} size="md" />
+                </div>
                 <p className="text-[12px] text-slate-500 font-mono mt-0.5">
                   Roll: <span className="font-semibold text-slate-800">{request.student?.rollNumber}</span>
                 </p>

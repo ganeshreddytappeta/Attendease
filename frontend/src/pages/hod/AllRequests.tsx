@@ -7,6 +7,7 @@ import { StatusBadge } from '../../components/shared/StatusBadge';
 import { Avatar } from '../../components/shared/Avatar';
 import { EmptyState } from '../../components/shared/EmptyState';
 import { Button } from '../../components/ui/Button';
+import { VerifiedActivityBadge } from '../../components/shared/VerifiedActivityBadge';
 import { formatDate, DEPARTMENTS } from '../../lib/utils';
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
@@ -291,9 +292,10 @@ export default function HODAllRequests() {
                         className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60 transition-colors"
                       >
                         <td className="px-5 py-3 cursor-pointer" onClick={() => navigate(`/hod/request/${req.id}`)}>
-                          <div className="flex items-center gap-2.5">
+                          <div className="flex items-center gap-2">
                             <Avatar name={req.student?.name || 'S'} src={req.student?.avatarUrl} size="sm" role="student" />
                             <span className="text-[13px] font-semibold text-slate-800 truncate max-w-[170px]">{req.student?.name}</span>
+                            <VerifiedActivityBadge student={req.student} />
                           </div>
                         </td>
                         <td className="px-3 py-3 cursor-pointer" onClick={() => navigate(`/hod/request/${req.id}`)}>
@@ -446,7 +448,10 @@ export default function HODAllRequests() {
                         <div className="flex items-center gap-2.5 min-w-0">
                           <Avatar name={req.student?.name || 'S'} src={req.student?.avatarUrl} size="sm" role="student" />
                           <div className="min-w-0">
-                            <p className="text-[13.5px] font-bold text-slate-800 leading-tight truncate">{req.student?.name}</p>
+                            <div className="flex items-center gap-1.5">
+                              <p className="text-[13.5px] font-bold text-slate-800 leading-tight truncate">{req.student?.name}</p>
+                              <VerifiedActivityBadge student={req.student} />
+                            </div>
                             <p className="text-[11px] font-mono text-slate-400 mt-0.5">{req.student?.rollNumber}</p>
                           </div>
                         </div>

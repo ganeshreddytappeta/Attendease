@@ -324,6 +324,7 @@ export interface GetRequestsParams {
   status?: string;
   search?: string;
   department?: string;
+  [key: string]: any;
 }
 
 export async function getRequests(
@@ -1164,7 +1165,15 @@ export interface FacultyInvigilationDuty {
   session: SessionType;
   startTime: string | null;  // HH:mm or null
   endTime: string | null;    // HH:mm or null
-  status: 'UPCOMING';
+  status: 'UPCOMING' | 'COMPLETED';
+  isToday?: boolean;
+  isPast?: boolean;
+  coInvigilators?: Array<{
+    id: string;
+    name: string;
+    department?: string;
+    email?: string;
+  }>;
 }
 
 export interface FacultyInvigilationListResponse {
@@ -1172,8 +1181,9 @@ export interface FacultyInvigilationListResponse {
   total: number;
 }
 
-export async function getMyInvigilationDuties(): Promise<FacultyInvigilationListResponse> {
-  return apiFetch<FacultyInvigilationListResponse>('/api/invigilation/my-duties');
+export async function getMyInvigilationDuties(options?: { all?: boolean; scope?: string }): Promise<FacultyInvigilationListResponse> {
+  const query = options?.all ? '?all=true' : options?.scope ? `?scope=${options.scope}` : '';
+  return apiFetch<FacultyInvigilationListResponse>(`/api/invigilation/my-duties${query}`);
 }
 
 // ─── Student Activities & Coordinator Management API ──────────────────────────

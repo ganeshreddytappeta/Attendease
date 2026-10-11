@@ -5,27 +5,24 @@ import {
   Plus,
   Trash2,
   Edit2,
-  ShieldCheck,
   Key,
-  Users,
   Briefcase,
   Rocket,
   Code,
   Trophy,
   Award,
-  Filter,
   CheckCircle2,
   AlertCircle,
   X,
-  History,
   CheckSquare,
   Square,
   UserPlus
 } from 'lucide-react';
 import { PageWrapper } from '../../components/layout/PageWrapper';
+import { EmptyState } from '../../components/shared/EmptyState';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as api from '../../lib/api';
-import type { StudentActivity, ActivityCategory, ActivityAuditLog } from '../../lib/api';
+import type { StudentActivity, ActivityCategory } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 
 interface StudentActivitiesPageProps {
@@ -47,7 +44,6 @@ export default function StudentActivitiesPage({ role = 'faculty' }: StudentActiv
   const [activeTab, setActiveTab] = useState<ActivityCategory | 'all'>('internship');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [showAuditLogs, setShowAuditLogs] = useState(false);
 
   // Selected row IDs for bulk operations
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -131,11 +127,6 @@ export default function StudentActivitiesPage({ role = 'faculty' }: StudentActiv
     enabled: isAddEditModalOpen || isBulkAddModalOpen,
   });
 
-  const { data: auditLogs = [] } = useQuery({
-    queryKey: ['activity-audit-logs', activeTab],
-    queryFn: () => api.getActivityAuditLogs(activeTab),
-    enabled: showAuditLogs,
-  });
 
   // Fetch Coordinator Assignments for current logged-in user
   const { data: myAssignments = { success: true, isAdmin: false, categories: [] } } = useQuery({
@@ -454,37 +445,30 @@ export default function StudentActivitiesPage({ role = 'faculty' }: StudentActiv
           )}
         </AnimatePresence>
 
-        {/* ── Page Title Header ── */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm">
+        {/* ── Page Title Header (Clean & Minimal) ── */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
           <div>
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-orange-600 mb-1">
-              <Users size={14} />
-              <span>Department Student Records</span>
+            <div className="flex items-center gap-2 mb-1">
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Student Activities</h1>
               {user?.role !== 'admin' && !myAssignments.isAdmin && (
-                <span className={`ml-2 px-2.5 py-0.5 rounded-full text-[10.5px] font-bold border ${
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
                   myAssignments.categories.length > 0
                     ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                    : 'bg-amber-50 text-amber-800 border-amber-200'
+                    : 'bg-slate-100 text-slate-600 border-slate-200'
                 }`}>
-                  {myAssignments.categories.length > 0 ? '🔑 Designated Coordinator' : '🛡️ View Only Access'}
+                  {myAssignments.categories.length > 0 ? 'Coordinator' : 'View Only'}
                 </span>
               )}
             </div>
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Student Activities</h1>
+            <p className="text-[13px] text-slate-500">
+              Department records for internships, startups, project work, sports, and events.
+            </p>
           </div>
 
-          <div className="flex items-center gap-3 flex-wrap">
-            <button
-              onClick={() => setShowAuditLogs(!showAuditLogs)}
-              className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition"
-            >
-              <History size={14} />
-              <span>{showAuditLogs ? 'Hide Audit Log' : 'View Audit Log'}</span>
-            </button>
-
+          <div className="flex items-center gap-2">
             <button
               onClick={openBulkAddModal}
-              className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl bg-orange-50 text-orange-700 border border-orange-200 hover:bg-orange-100 transition"
+              className="h-9 inline-flex items-center gap-1.5 px-3 text-xs font-semibold rounded-lg border border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100 transition cursor-pointer"
             >
               <UserPlus size={14} />
               <span>Bulk Add</span>
@@ -492,265 +476,197 @@ export default function StudentActivitiesPage({ role = 'faculty' }: StudentActiv
 
             <button
               onClick={() => openAddModal()}
-              className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl bg-orange-600 text-white hover:bg-orange-700 shadow-md shadow-orange-500/20 transition"
+              className="h-9 inline-flex items-center gap-1.5 px-3.5 text-xs font-semibold rounded-lg bg-orange-600 text-white hover:bg-orange-700 shadow-xs transition cursor-pointer"
             >
-              <Plus size={15} />
+              <Plus size={14} />
               <span>Add Student</span>
             </button>
           </div>
         </div>
 
-        {/* ── Category Dropdown ── */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm w-full md:w-72">
-          <label htmlFor="student-activity-category" className="block mb-2 text-xs font-bold text-slate-600">
-            Category
-          </label>
-          <select
-            id="student-activity-category"
-            value={activeTab}
-            onChange={e => {
-              setActiveTab(e.target.value as ActivityCategory);
-              setSelectedIds([]);
-            }}
-            className="w-full px-3 py-2.5 text-xs font-semibold rounded-xl bg-slate-50 border border-slate-200 text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition"
-          >
-            {(Object.keys(CATEGORY_CONFIG) as ActivityCategory[]).map(catKey => (
-              <option key={catKey} value={catKey}>{CATEGORY_CONFIG[catKey].label}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* ── Audit Logs Drawer / Panel ── */}
-        <AnimatePresence>
-          {showAuditLogs && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="bg-slate-900 text-slate-200 p-5 rounded-2xl border border-slate-800 shadow-xl overflow-hidden"
+        {/* ── Minimal Toolbar: Category Dropdown, Status, Search ── */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 mb-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Category Dropdown */}
+            <select
+              value={activeTab}
+              onChange={e => {
+                setActiveTab(e.target.value as any);
+                setSelectedIds([]);
+              }}
+              className="h-9 px-3 text-[12.5px] font-medium rounded-lg bg-white border border-slate-200 text-slate-700 shadow-xs focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-orange-500 cursor-pointer"
             >
-              <div className="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
-                <div className="flex items-center gap-2 font-bold text-sm text-orange-400">
-                  <ShieldCheck size={16} />
-                  <span>Activity Audit Log Trail ({activeTab.toUpperCase()})</span>
-                </div>
-                <button onClick={() => setShowAuditLogs(false)} className="text-slate-400 hover:text-white">
-                  <X size={16} />
-                </button>
-              </div>
+              <option value="all">All Categories</option>
+              {(Object.keys(CATEGORY_CONFIG) as ActivityCategory[]).map(catKey => (
+                <option key={catKey} value={catKey}>
+                  {CATEGORY_CONFIG[catKey].label}
+                </option>
+              ))}
+            </select>
 
-              <div className="max-h-60 overflow-y-auto space-y-2 pr-1 text-xs">
-                {auditLogs.length === 0 ? (
-                  <p className="text-slate-500 italic text-center py-4">No audit log records for this category yet.</p>
-                ) : (
-                  auditLogs.map((log: ActivityAuditLog) => (
-                    <div key={log.id} className="p-3 bg-slate-800/60 rounded-xl border border-slate-800 flex items-start justify-between gap-4">
-                      <div>
-                        <span className="font-bold text-orange-400 mr-2">[{log.action}]</span>
-                        <span className="text-slate-100 font-semibold">{log.actorName}</span> ({log.actorRole})
-                        {log.studentName && <span className="text-slate-300"> • Student: <strong>{log.studentName}</strong></span>}
-                        {log.details && <p className="text-slate-400 text-[11px] mt-1 font-mono">{log.details}</p>}
-                      </div>
-                      <span className="text-[11px] text-slate-500 whitespace-nowrap">
-                        {new Date(log.timestamp).toLocaleString()}
-                      </span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* ── Search & Actions Bar ── */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="relative w-full md:w-80">
-            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search by name, roll no, company, title..."
-              className="w-full pl-10 pr-4 py-2 text-xs font-semibold rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition"
-            />
-          </div>
-
-          <div className="flex items-center gap-3 w-full md:w-auto justify-end">
-            <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
-              <Filter size={14} />
-              <span>Status:</span>
-            </div>
-
+            {/* Status Dropdown */}
             <select
               value={statusFilter}
               onChange={e => setStatusFilter(e.target.value)}
-              className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-50 border border-slate-200 text-slate-700 focus:outline-none focus:border-orange-500"
+              className="h-9 px-3 text-[12.5px] font-medium rounded-lg bg-white border border-slate-200 text-slate-700 shadow-xs focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-orange-500 cursor-pointer"
             >
               <option value="all">All Statuses</option>
               <option value="active">Active</option>
               <option value="completed">Completed</option>
             </select>
 
-            {/* Bulk Action Controls */}
-            {selectedIds.length > 0 && (
-              <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
-                <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2.5 py-1 rounded-lg">
-                  {selectedIds.length} selected
-                </span>
-                <button
-                  onClick={() => setIsBulkRemoveModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 transition"
-                >
-                  <Trash2 size={13} />
-                  <span>Remove Selected</span>
-                </button>
-              </div>
+            {/* Select all toggle */}
+            {activities.length > 0 && (
+              <button
+                type="button"
+                onClick={toggleSelectAll}
+                className="h-9 px-3 text-[12.5px] font-medium text-slate-700 hover:text-slate-900 bg-white border border-slate-200 rounded-lg shadow-xs flex items-center gap-1.5 hover:bg-slate-50 transition cursor-pointer"
+              >
+                {selectedIds.length === activities.length ? (
+                  <CheckSquare size={14} className="text-orange-600" />
+                ) : (
+                  <Square size={14} className="text-slate-400" />
+                )}
+                <span>{selectedIds.length === activities.length ? 'Deselect All' : 'Select All'}</span>
+              </button>
             )}
+
+            {selectedIds.length > 0 && (
+              <button
+                onClick={() => setIsBulkRemoveModalOpen(true)}
+                className="h-9 inline-flex items-center gap-1.5 px-3 text-[12.5px] font-medium rounded-lg bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 transition cursor-pointer"
+              >
+                <Trash2 size={13} />
+                <span>Remove ({selectedIds.length})</span>
+              </button>
+            )}
+          </div>
+
+          {/* Search box */}
+          <div className="relative sm:w-64">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search student or activity..."
+              className="w-full h-9 pl-9 pr-3 bg-white border border-slate-200 rounded-lg text-[12.5px] text-slate-800 placeholder-slate-400 shadow-xs focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
+            />
           </div>
         </div>
 
-        {/* ── Main Student Activity Data Table ── */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-          {isLoading ? (
-            <div className="p-12 text-center text-slate-400 flex flex-col items-center justify-center gap-3">
-              <div className="w-8 h-8 border-3 border-orange-500 border-t-transparent rounded-full animate-spin" />
-              <span className="text-xs font-semibold">Loading student activities...</span>
-            </div>
-          ) : activities.length === 0 ? (
-            <div className="p-12 text-center text-slate-400 space-y-3">
-              <Users size={36} className="mx-auto text-slate-300" />
-              <p className="text-sm font-bold text-slate-700">No student activity records found</p>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                No students are currently registered under <strong>{activeTab.toUpperCase()}</strong> matching your filter criteria.
-              </p>
+        {/* ── Minimal Student Cards Grid ── */}
+        {isLoading ? (
+          <div className="bg-white rounded-xl p-10 text-center border border-slate-200/80 shadow-2xs">
+            <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+            <span className="text-xs font-medium text-slate-600">Loading student activities...</span>
+          </div>
+        ) : activities.length === 0 ? (
+          <EmptyState
+            title="No student activity records found"
+            description="No activities registered under this category or search filter."
+            action={
               <button
                 onClick={() => openAddModal()}
-                className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl bg-orange-600 text-white hover:bg-orange-700 transition"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-orange-600 text-white hover:bg-orange-700 shadow-2xs transition cursor-pointer"
               >
                 <Plus size={14} />
                 <span>Add First Student</span>
               </button>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="bg-slate-50/80 border-b border-slate-200/80 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
-                    <th className="py-3.5 px-4 text-center w-10">
-                      <button onClick={toggleSelectAll} className="text-slate-400 hover:text-slate-700">
-                        {selectedIds.length === activities.length ? <CheckSquare size={16} className="text-orange-600" /> : <Square size={16} />}
+            }
+          />
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+            {activities.map((act: StudentActivity) => {
+              const isSelected = selectedIds.includes(act.id);
+              const config = CATEGORY_CONFIG[act.category] || CATEGORY_CONFIG.internship;
+
+              return (
+                <div
+                  key={act.id}
+                  className={`bg-white rounded-xl p-3 border transition-all ${
+                    isSelected
+                      ? 'border-orange-400 bg-orange-50/20 shadow-2xs'
+                      : 'border-slate-200/80 hover:border-slate-300 shadow-2xs hover:shadow-xs'
+                  }`}
+                >
+                  {/* Top: Student & Actions */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-semibold text-slate-900 text-[13px] truncate">
+                          {act.student?.name || 'Student'}
+                        </span>
+                        <span className="text-[11px] text-slate-400 font-mono">
+                          {act.student?.rollNumber || act.studentId}
+                        </span>
+                      </div>
+
+                      <p className="text-[12px] font-medium text-slate-800 truncate mt-1">
+                        {act.titleOrCompany}
+                        {act.roleOrPosition && <span className="text-slate-400 font-normal"> · {act.roleOrPosition}</span>}
+                      </p>
+
+                      {act.mentorOrAchievement && (
+                        <p className="text-[11px] text-slate-400 truncate mt-0.5">
+                          {act.mentorOrAchievement}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-0.5 shrink-0 -mt-0.5 -mr-1">
+                      <button
+                        type="button"
+                        onClick={() => openEditModal(act)}
+                        className="p-1 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded transition cursor-pointer"
+                        title="Edit record"
+                      >
+                        <Edit2 size={12} />
                       </button>
-                    </th>
-                    <th className="py-3.5 px-4">Student Identity</th>
-                    <th className="py-3.5 px-4">Category Details</th>
-                    <th className="py-3.5 px-4">Role / Mentor / Notes</th>
-                    <th className="py-3.5 px-4">Duration</th>
-                    <th className="py-3.5 px-4 text-center">Status</th>
-                    <th className="py-3.5 px-4 text-center w-24">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-medium">
-                  {activities.map((act: StudentActivity) => {
-                    const isSelected = selectedIds.includes(act.id);
-                    const config = CATEGORY_CONFIG[act.category] || CATEGORY_CONFIG.internship;
-                    const CategoryIcon = config.icon;
-                    return (
-                      <tr key={act.id} className={`hover:bg-slate-50/80 transition ${isSelected ? 'bg-orange-50/30' : ''}`}>
-                        <td className="py-3.5 px-4 text-center">
-                          <button onClick={() => toggleSelectRow(act.id)} className="text-slate-400 hover:text-slate-700">
-                            {isSelected ? <CheckSquare size={16} className="text-orange-600" /> : <Square size={16} />}
-                          </button>
-                        </td>
+                      <button
+                        type="button"
+                        onClick={() => openDeleteModal(act)}
+                        className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition cursor-pointer"
+                        title="Remove record"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => toggleSelectRow(act.id)}
+                        className="p-1 text-slate-400 hover:text-slate-700 cursor-pointer ml-0.5"
+                        title={isSelected ? 'Deselect' : 'Select'}
+                      >
+                        {isSelected ? (
+                          <CheckSquare size={14} className="text-orange-600" />
+                        ) : (
+                          <Square size={14} />
+                        )}
+                      </button>
+                    </div>
+                  </div>
 
-                        {/* Student Identity */}
-                        <td className="py-3.5 px-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center font-black text-slate-700 text-xs border border-slate-200 shrink-0">
-                              {act.student?.avatarUrl ? (
-                                <img src={act.student.avatarUrl} alt="" className="w-full h-full rounded-xl object-cover" />
-                              ) : (
-                                (act.student?.name || 'S').charAt(0)
-                              )}
-                            </div>
-                            <div>
-                              <p className="font-extrabold text-slate-900 text-xs">{act.student?.name || 'Student'}</p>
-                              <div className="flex items-center gap-2 text-[11px] text-slate-500 font-mono">
-                                <span>{act.student?.rollNumber || act.studentId}</span>
-                                <span>•</span>
-                                <span>{act.student?.department || 'CSD'}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </td>
+                  {/* Bottom: Minimal Tag, Status Dot, Duration */}
+                  <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                    <div className="flex items-center gap-2">
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${config.bg} ${config.color}`}>
+                        {config.label}
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-[10.5px]">
+                        <span className={`w-1.5 h-1.5 rounded-full ${act.status === 'completed' ? 'bg-emerald-500' : 'bg-blue-500'}`} />
+                        <span className="capitalize">{act.status}</span>
+                      </span>
+                    </div>
 
-                        {/* Activity Details */}
-                        <td className="py-3.5 px-4">
-                          <div className="flex items-center gap-2">
-                            <span className={`p-1.5 rounded-lg ${config.bg} ${config.color} border ${config.border}`}>
-                              <CategoryIcon size={13} />
-                            </span>
-                            <div>
-                              <p className="font-bold text-slate-900">{act.titleOrCompany}</p>
-                              <span className="text-[10.5px] font-bold text-slate-400 uppercase tracking-wide">{config.label}</span>
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* Role / Mentor */}
-                        <td className="py-3.5 px-4">
-                          <p className="text-slate-700 font-semibold">{act.roleOrPosition || '—'}</p>
-                          {act.mentorOrAchievement && (
-                            <p className="text-[11px] text-slate-500 italic mt-0.5">{act.mentorOrAchievement}</p>
-                          )}
-                        </td>
-
-                        {/* Duration */}
-                        <td className="py-3.5 px-4 text-slate-500 text-[11.5px] font-mono">
-                          {act.startDate ? (
-                            <span>{act.startDate} {act.endDate ? `to ${act.endDate}` : ''}</span>
-                          ) : (
-                            <span className="text-slate-400 italic">N/A</span>
-                          )}
-                        </td>
-
-                        {/* Status Badge */}
-                        <td className="py-3.5 px-4 text-center">
-                          <span className={`inline-block px-2.5 py-1 rounded-full text-[10.5px] font-bold uppercase tracking-wider ${
-                            act.status === 'completed'
-                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                              : 'bg-blue-100 text-blue-800 border border-blue-200'
-                          }`}>
-                            {act.status}
-                          </span>
-                        </td>
-
-                        {/* Actions */}
-                        <td className="py-3.5 px-4 text-center">
-                          <div className="flex items-center justify-center gap-1.5">
-                            <button
-                              onClick={() => openEditModal(act)}
-                              title="Edit Record (Requires Coordinator Code)"
-                              className="p-1.5 rounded-lg text-slate-500 hover:text-orange-600 hover:bg-orange-50 border border-transparent hover:border-orange-200 transition"
-                            >
-                              <Edit2 size={14} />
-                            </button>
-                            <button
-                              onClick={() => openDeleteModal(act)}
-                              title="Remove from Activity (Master Student Record Intact)"
-                              className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+                    <span className="text-[10.5px] text-slate-400 truncate">
+                      {act.startDate ? (act.endDate ? `${act.startDate} – ${act.endDate}` : act.startDate) : '—'}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* ════════════════════════════════════════════════════════════════════════

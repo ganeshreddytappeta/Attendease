@@ -253,7 +253,7 @@ const REASON_LABELS: Record<RequestReason, string> = {
 
 // Shared include for all request queries including actions audit trail
 const REQUEST_INCLUDE = {
-  student:        true,
+  student:        { include: { studentActivities: { where: { isActive: true } } } },
   primaryFaculty: true,
   faculties:      { include: { faculty: true } },
   actions:        { include: { performedBy: true }, orderBy: { performedAt: 'asc' as const } },
@@ -262,7 +262,7 @@ const REQUEST_INCLUDE = {
 
 // Lightweight include for table/list views (omits heavy audit logs actions)
 const REQUEST_LIST_INCLUDE = {
-  student:        true,
+  student:        { include: { studentActivities: { where: { isActive: true } } } },
   primaryFaculty: true,
   faculties:      { include: { faculty: true } },
   shareLinks:     { where: { isActive: true }, orderBy: { createdAt: 'desc' as const }, take: 1 },
@@ -275,6 +275,9 @@ function toApi(r: any) {
   const allFacultyRows = r.faculties ? r.faculties.map((rf: any) => rf.faculty) : [];
   const fallbackRoll = r.studentId?.startsWith('stu-') ? r.studentId.replace('stu-', '').toUpperCase() : (r.studentId || 'STUDENT');
 
+  const activeActivities = student?.studentActivities?.filter((a: any) => a.isActive !== false) || [];
+  const hasActivities = activeActivities.length > 0;
+
   const studentObj = student ? {
     id:          student.userId,
     name:        student.name,
@@ -285,6 +288,14 @@ function toApi(r: any) {
     semester:    student.semester   ?? 1,
     email:       student.email,
     avatarUrl:   student.avatarUrl  || (student.rollNumber ? `https://srkrexams.in/SRKR/photo/${student.rollNumber.toUpperCase()}.jpg` : (fallbackRoll ? `https://srkrexams.in/SRKR/photo/${fallbackRoll.toUpperCase()}.jpg` : undefined)),
+    hasActivities,
+    studentActivities: activeActivities.map((a: any) => ({
+      id: a.id,
+      category: a.category,
+      titleOrCompany: a.titleOrCompany,
+      roleOrPosition: a.roleOrPosition,
+      status: a.status,
+    })),
   } : {
     id:          r.studentId || 'stu-unknown',
     name:        r.studentName || fallbackRoll,
@@ -294,6 +305,8 @@ function toApi(r: any) {
     semester:    1,
     email:       `${fallbackRoll.toLowerCase()}@srkrec.ac.in`,
     avatarUrl:   fallbackRoll ? `https://srkrexams.in/SRKR/photo/${fallbackRoll.toUpperCase()}.jpg` : undefined,
+    hasActivities: false,
+    studentActivities: [],
   };
 
   const facultyObj = faculty ? {

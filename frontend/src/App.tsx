@@ -26,7 +26,7 @@ import StudentNotifications from './pages/student/Notifications';
 import FacultyDashboard from './pages/faculty_portal/Dashboard';
 import FacultyRequests from './pages/faculty_portal/Requests';
 import FacultyRequestDetails from './pages/faculty_portal/RequestDetails';
-import FacultyStudents from './pages/faculty_portal/Students';
+import FacultyInvigilation from './pages/faculty_portal/Invigilation';
 import FacultyReports from './pages/faculty_portal/Reports';
 import FacultySettings from './pages/faculty_portal/Settings';
 import FacultyAttendance from './pages/faculty_portal/Attendance';
@@ -221,7 +221,9 @@ function AppRoutes() {
         <Route path="/faculty/requests" element={<ProtectedRoute role="faculty"><FacultyRequests /></ProtectedRoute>} />
         <Route path="/faculty/request/:id" element={<ProtectedRoute role="faculty"><FacultyRequestDetails /></ProtectedRoute>} />
         <Route path="/faculty/review/:id" element={<ProtectedRoute role="faculty"><FacultyRequestDetails /></ProtectedRoute>} />
-        <Route path="/faculty/students" element={<ProtectedRoute role="faculty"><FacultyStudents /></ProtectedRoute>} />
+        <Route path="/faculty/invigilation" element={<ProtectedRoute role="faculty"><FacultyInvigilation /></ProtectedRoute>} />
+        <Route path="/faculty/invigilations" element={<Navigate to="/faculty/invigilation" replace />} />
+        <Route path="/faculty/students" element={<Navigate to="/faculty/invigilation" replace />} />
         <Route path="/faculty/student-activities" element={<ProtectedRoute role="faculty"><StudentActivitiesPage role="faculty" /></ProtectedRoute>} />
         <Route path="/faculty/reports" element={<ProtectedRoute role="faculty"><FacultyReports /></ProtectedRoute>} />
         <Route path="/faculty/settings" element={<ProtectedRoute role="faculty"><FacultySettings /></ProtectedRoute>} />

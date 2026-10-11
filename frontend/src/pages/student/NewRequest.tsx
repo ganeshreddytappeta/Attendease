@@ -9,7 +9,7 @@ import { PageWrapper } from '../../components/layout/PageWrapper';
 import { UploadArea } from '../../components/forms/UploadArea';
 import * as api from '../../lib/api';
 import {
-  ArrowLeft, CalendarDays, Clock, FileText, Upload,
+  ArrowLeft, CalendarDays, FileText, Upload,
   BookOpen, PenLine, Send, UserCheck, ChevronDown,
   Check, Zap, Calendar, ChevronsUpDown
 } from 'lucide-react';
@@ -83,7 +83,6 @@ export default function NewRequest() {
   const [file, setFile] = useState<File | null>(null);
   const [selectedFacultyIds, setSelectedFacultyIds] = useState<string[]>([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [showAllFaculty, setShowAllFaculty] = useState(false);
 
   // New Period Selector & Leave Calendar State
   const [requestType, setRequestType] = useState<'permission' | 'leave'>('permission');
