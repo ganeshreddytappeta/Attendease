@@ -16,42 +16,30 @@ export interface VerifiedActivityBadgeProps {
   } | null;
   studentId?: string;
   rollNumber?: string;
-  requests?: any[];
-  forceVerified?: boolean;
   className?: string;
   size?: 'xs' | 'sm' | 'md' | 'lg';
 }
 
-const ACTIVITY_REASONS = ['internship', 'startup', 'project_development', 'sports', 'competition'];
-
 /**
  * VerifiedActivityBadge
- * Displays the official Bold C-Arc with Orange Checkmark badge beside requests & student card
- * for students who are registered in student activities or have approved activity permissions.
+ * Displays the official Bold C-Arc with Orange Checkmark badge ONLY if the student
+ * is actively registered and verified in an official Student Activity
+ * (internship, startup, project work, sports, or house events registry).
  */
 export function VerifiedActivityBadge({
   student,
   studentId,
   rollNumber,
-  requests,
-  forceVerified = false,
   className = '',
   size = 'sm',
 }: VerifiedActivityBadgeProps) {
-  // 1. Direct check on student object from API / AuthContext
+  // 1. Check if directly present on student object from backend API
   const hasDirect = Boolean(
-    forceVerified ||
     student?.hasActivities ||
     (student?.studentActivities && student.studentActivities.length > 0)
   );
 
-  // 2. Check if student has approved activity requests (internships, sports, startups, etc.)
-  const approvedActivityReqs = requests?.filter(
-    (r: any) => r.status === 'approved' && ACTIVITY_REASONS.includes(r.reason)
-  ) || [];
-  const hasApprovedActivity = approvedActivityReqs.length > 0;
-
-  // 3. Query fallback: fetch all active activities from registry
+  // 2. Query fallback: cross-check with verified activities registry
   const { data: activityData } = useQuery({
     queryKey: ['verified-activity-registry'],
     queryFn: async () => {
@@ -96,11 +84,12 @@ export function VerifiedActivityBadge({
     (idKey && activityData?.idSet.has(idKey))
   );
 
-  const isVerified = hasDirect || hasApprovedActivity || isVerifiedInRegistry;
+  // ONLY appears if the student is actually involved in a verified activity
+  const isVerified = hasDirect || isVerifiedInRegistry;
 
   if (!isVerified) return null;
 
-  // Determine tooltip categories
+  // Determine tooltip categories from verified activity participation
   const categories: string[] = [];
 
   if (student?.studentActivities && student.studentActivities.length > 0) {
@@ -122,16 +111,9 @@ export function VerifiedActivityBadge({
     }
   }
 
-  if (approvedActivityReqs.length > 0) {
-    for (const r of approvedActivityReqs) {
-      const name = r.reasonLabel || r.reason?.replace('_', ' ');
-      if (name && !categories.includes(name)) categories.push(name);
-    }
-  }
-
   const tooltipText = categories.length > 0
-    ? `Student Activity Verified (${categories.join(', ')})`
-    : 'Student Activity Verified';
+    ? `Verified Activity: ${categories.join(', ')}`
+    : 'Verified Student Activity Participant';
 
   const sizeClasses = {
     xs: 'w-3 h-3',

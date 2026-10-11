@@ -131,7 +131,6 @@ export default function StudentHome() {
               student={user}
               studentId={user?.userId || user?.id}
               rollNumber={(user as any)?.rollNumber}
-              requests={allRequests}
               size="md"
             />
           </div>
