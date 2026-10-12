@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -32,10 +32,12 @@ export default function FacultyRequests() {
   const [search, setSearch]         = useState('');
   const [department, setDept]       = useState('');
   const [yearFilter, setYearFilter] = useState('');
-  const [tab, setTab]               = useState<TabValue>('all');
+  // Default to pending requests so pending requests load immediately without blocking
+  const [tab, setTab]               = useState<TabValue>('pending');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
-  const [displayLimit, setDisplayLimit] = useState<number>(25);
+  const [displayLimitPending, setDisplayLimitPending] = useState<number>(50);
+  const [displayLimitHistorical, setDisplayLimitHistorical] = useState<number>(25);
   const [toastMsg, setToastMsg]     = useState<{ text: string; isError?: boolean } | null>(null);
 
   const showToast = (text: string, isError = false) => {
@@ -43,15 +45,98 @@ export default function FacultyRequests() {
     setTimeout(() => setToastMsg(null), 4000);
   };
 
-  const { data: requestsList = [], isFetching, isLoading } = useQuery({
-    queryKey: ['requests', displayLimit, tab],
-    queryFn: () => api.getRequests({
-      limit: displayLimit,
-      status: tab !== 'all' ? tab : undefined,
-    }),
-    placeholderData: keepPreviousData,
+  // 1. Instant Lightweight Summary Counts: provides true numbers for tabs with zero delay
+  const { data: summaryData } = useQuery({
+    queryKey: ['requests-summary'],
+    queryFn: () => api.getRequestsSummary(),
+    staleTime: 30000,
     refetchInterval: 30000,
   });
+
+  // 2. High-Priority: Immediately fetch ONLY the latest 10 Pending Requests on initial load
+  const {
+    data: initialPendingRequests,
+    isLoading: isLoadingInitialPending,
+    isFetching: isFetchingInitialPending,
+  } = useQuery({
+    queryKey: ['requests', 'pending', 10],
+    queryFn: () => api.getRequests({
+      status: 'pending',
+      limit: 10,
+    }),
+    staleTime: 30000,
+    refetchInterval: 30000,
+  });
+
+  // 3. Progressive Background Fetch: Fetch additional pending requests progressively
+  const {
+    data: fullPendingRequests,
+    isFetching: isFetchingMorePending,
+  } = useQuery({
+    queryKey: ['requests', 'pending', displayLimitPending],
+    queryFn: () => api.getRequests({
+      status: 'pending',
+      limit: displayLimitPending,
+    }),
+    placeholderData: keepPreviousData,
+    staleTime: 30000,
+    refetchInterval: 30000,
+  });
+
+  // 4. Lazy Historical Fetch: Only fetched when user switches to Approved, Rejected, or All
+  const isHistoricalTab = tab !== 'pending';
+
+  const {
+    data: historicalRequests,
+    isLoading: isLoadingHistorical,
+    isFetching: isFetchingHistorical,
+  } = useQuery({
+    queryKey: ['requests', tab, displayLimitHistorical],
+    queryFn: () => api.getRequests({
+      status: tab === 'all' ? undefined : tab,
+      limit: displayLimitHistorical,
+    }),
+    enabled: isHistoricalTab,
+    placeholderData: keepPreviousData,
+    staleTime: 30000,
+    refetchInterval: isHistoricalTab ? 30000 : false,
+  });
+
+  // 5. Preload historical lists lazily in the background with low priority after initial pending load finishes
+  useEffect(() => {
+    if (initialPendingRequests && !isFetchingInitialPending) {
+      const timer = setTimeout(() => {
+        void queryClient.prefetchQuery({
+          queryKey: ['requests', 'approved', 25],
+          queryFn: () => api.getRequests({ status: 'approved', limit: 25 }),
+          staleTime: 30000,
+        });
+        void queryClient.prefetchQuery({
+          queryKey: ['requests', 'rejected', 25],
+          queryFn: () => api.getRequests({ status: 'rejected', limit: 25 }),
+          staleTime: 30000,
+        });
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [initialPendingRequests, isFetchingInitialPending, queryClient]);
+
+  // Combined requests list based on active tab
+  const pendingRequestsList = fullPendingRequests ?? initialPendingRequests ?? [];
+  const requestsList = tab === 'pending'
+    ? pendingRequestsList
+    : (historicalRequests ?? []);
+
+  // Track if progressive pending fetch is actively in flight
+  const isProgressiveLoadingPending =
+    tab === 'pending' &&
+    isFetchingMorePending &&
+    Boolean(initialPendingRequests || fullPendingRequests);
+
+  // Full-page loading only occurs if initial 10 pending requests haven't arrived yet
+  const isInitialLoading = tab === 'pending'
+    ? (isLoadingInitialPending && !initialPendingRequests && !fullPendingRequests)
+    : (isLoadingHistorical && !historicalRequests);
 
   const filtered = requestsList.filter((req: AttendanceRequest) => {
     const matchesTab    = tab === 'all' || req.status === tab;
@@ -96,7 +181,6 @@ export default function FacultyRequests() {
     mutationFn: (ids: string[]) => api.bulkReviewRequests(ids, 'approve'),
     onMutate: async (ids: string[]) => {
       await queryClient.cancelQueries({ queryKey: ['requests'] });
-      const previousRequests = queryClient.getQueryData(['requests', displayLimit, tab]);
 
       setProcessingIds(prev => {
         const next = new Set(prev);
@@ -117,17 +201,18 @@ export default function FacultyRequests() {
         return mapped;
       });
 
-      return { previousRequests, ids };
+      return { ids };
     },
-    onError: (err: Error, _ids, context) => {
-      if (context?.previousRequests) {
-        queryClient.setQueryData(['requests', displayLimit, tab], context.previousRequests);
-      }
+    onError: (err: Error) => {
+      void queryClient.invalidateQueries({ queryKey: ['requests'] });
+      void queryClient.invalidateQueries({ queryKey: ['requests-summary'] });
       showToast(err.message || 'Failed to approve requests', true);
     },
     onSuccess: (data) => {
       setSelectedIds(new Set());
       showToast(`Successfully approved ${data.count} request(s)!`);
+      void queryClient.invalidateQueries({ queryKey: ['requests'] });
+      void queryClient.invalidateQueries({ queryKey: ['requests-summary'] });
       void queryClient.invalidateQueries({ queryKey: ['public-approved-requests-for-attendance'] });
     },
     onSettled: (_, __, ids) => {
@@ -144,7 +229,6 @@ export default function FacultyRequests() {
     mutationFn: (ids: string[]) => api.bulkReviewRequests(ids, 'reject', 'Rejected by Faculty (Bulk)'),
     onMutate: async (ids: string[]) => {
       await queryClient.cancelQueries({ queryKey: ['requests'] });
-      const previousRequests = queryClient.getQueryData(['requests', displayLimit, tab]);
 
       setProcessingIds(prev => {
         const next = new Set(prev);
@@ -165,17 +249,18 @@ export default function FacultyRequests() {
         return mapped;
       });
 
-      return { previousRequests, ids };
+      return { ids };
     },
-    onError: (err: Error, _ids, context) => {
-      if (context?.previousRequests) {
-        queryClient.setQueryData(['requests', displayLimit, tab], context.previousRequests);
-      }
+    onError: (err: Error) => {
+      void queryClient.invalidateQueries({ queryKey: ['requests'] });
+      void queryClient.invalidateQueries({ queryKey: ['requests-summary'] });
       showToast(err.message || 'Failed to reject requests', true);
     },
     onSuccess: (data) => {
       setSelectedIds(new Set());
       showToast(`Rejected ${data.count} request(s).`, true);
+      void queryClient.invalidateQueries({ queryKey: ['requests'] });
+      void queryClient.invalidateQueries({ queryKey: ['requests-summary'] });
       void queryClient.invalidateQueries({ queryKey: ['public-approved-requests-for-attendance'] });
     },
     onSettled: (_, __, ids) => {
@@ -192,7 +277,6 @@ export default function FacultyRequests() {
     mutationFn: (id: string) => api.reviewRequest(id, 'approve'),
     onMutate: async (id: string) => {
       await queryClient.cancelQueries({ queryKey: ['requests'] });
-      const previousRequests = queryClient.getQueryData(['requests', displayLimit, tab]);
 
       setProcessingIds(prev => new Set(prev).add(id));
 
@@ -208,12 +292,11 @@ export default function FacultyRequests() {
         return mapped;
       });
 
-      return { previousRequests, id };
+      return { id };
     },
-    onError: (err: Error, _id, context) => {
-      if (context?.previousRequests) {
-        queryClient.setQueryData(['requests', displayLimit, tab], context.previousRequests);
-      }
+    onError: (err: Error) => {
+      void queryClient.invalidateQueries({ queryKey: ['requests'] });
+      void queryClient.invalidateQueries({ queryKey: ['requests-summary'] });
       showToast(err.message || 'Failed to approve request', true);
     },
     onSuccess: (updated, id) => {
@@ -232,6 +315,8 @@ export default function FacultyRequests() {
         return next;
       });
       showToast(`Approved request for ${updated.student?.name || 'student'}!`);
+      void queryClient.invalidateQueries({ queryKey: ['requests'] });
+      void queryClient.invalidateQueries({ queryKey: ['requests-summary'] });
       void queryClient.invalidateQueries({ queryKey: ['public-approved-requests-for-attendance'] });
     },
     onSettled: (_, __, id) => {
@@ -248,7 +333,6 @@ export default function FacultyRequests() {
     mutationFn: (id: string) => api.reviewRequest(id, 'reject', 'Rejected by Faculty'),
     onMutate: async (id: string) => {
       await queryClient.cancelQueries({ queryKey: ['requests'] });
-      const previousRequests = queryClient.getQueryData(['requests', displayLimit, tab]);
 
       setProcessingIds(prev => new Set(prev).add(id));
 
@@ -264,12 +348,11 @@ export default function FacultyRequests() {
         return mapped;
       });
 
-      return { previousRequests, id };
+      return { id };
     },
-    onError: (err: Error, _id, context) => {
-      if (context?.previousRequests) {
-        queryClient.setQueryData(['requests', displayLimit, tab], context.previousRequests);
-      }
+    onError: (err: Error) => {
+      void queryClient.invalidateQueries({ queryKey: ['requests'] });
+      void queryClient.invalidateQueries({ queryKey: ['requests-summary'] });
       showToast(err.message || 'Failed to reject request', true);
     },
     onSuccess: (updated, id) => {
@@ -288,6 +371,8 @@ export default function FacultyRequests() {
         return next;
       });
       showToast(`Rejected request for ${updated.student?.name || 'student'}.`, true);
+      void queryClient.invalidateQueries({ queryKey: ['requests'] });
+      void queryClient.invalidateQueries({ queryKey: ['requests-summary'] });
       void queryClient.invalidateQueries({ queryKey: ['public-approved-requests-for-attendance'] });
     },
     onSettled: (_, __, id) => {
@@ -415,10 +500,10 @@ export default function FacultyRequests() {
                 onChange={e => setTab(e.target.value as TabValue)}
                 className="h-[38px] px-3 text-[12.5px] bg-white border border-slate-200 rounded-xl outline-none focus:border-orange-500 cursor-pointer text-slate-700 shadow-subtle font-medium"
               >
-                <option value="all">All Statuses ({requestsList.length})</option>
-                <option value="pending">Pending ({requestsList.filter(r => r.status === 'pending').length})</option>
-                <option value="approved">Approved ({requestsList.filter(r => r.status === 'approved').length})</option>
-                <option value="rejected">Rejected ({requestsList.filter(r => r.status === 'rejected').length})</option>
+                <option value="pending">Pending ({summaryData?.stats.pending ?? pendingRequestsList.length})</option>
+                <option value="all">All Statuses ({summaryData?.stats.total ?? (tab === 'all' ? requestsList.length : '…')})</option>
+                <option value="approved">Approved ({summaryData?.stats.approved ?? (tab === 'approved' ? requestsList.length : '…')})</option>
+                <option value="rejected">Rejected ({summaryData?.stats.rejected ?? (tab === 'rejected' ? requestsList.length : '…')})</option>
               </select>
             </div>
           </div>
@@ -430,7 +515,7 @@ export default function FacultyRequests() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.14 }}
         >
-          {isLoading ? (
+          {isInitialLoading ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <div className="w-12 h-12 rounded-2xl bg-orange-50 flex items-center justify-center mb-4">
                 <Loader2 size={22} className="text-orange-500 animate-spin" />
@@ -443,13 +528,27 @@ export default function FacultyRequests() {
               title="No requests found"
               description="Try adjusting your filters."
               action={
-                <Button variant="secondary" onClick={() => { setSearch(''); setDept(''); setTab('all'); }}>
+                <Button variant="secondary" onClick={() => { setSearch(''); setDept(''); setTab('pending'); }}>
                   Clear filters
                 </Button>
               }
             />
           ) : (
-            <div className="card overflow-hidden bg-white border border-slate-200/90 rounded-2xl shadow-2xs">
+            <>
+              {/* Progressive Loading State Banner */}
+              {isProgressiveLoadingPending && (
+                <div className="mb-3 px-3.5 py-2.5 bg-orange-50/90 border border-orange-200/80 rounded-xl flex items-center justify-between text-xs text-orange-700 shadow-2xs">
+                  <div className="flex items-center gap-2">
+                    <Loader2 size={13} className="animate-spin text-orange-500 shrink-0" />
+                    <span className="font-bold">Loading more requests…</span>
+                  </div>
+                  <span className="text-[11.5px] text-orange-600/90 font-medium hidden sm:inline">
+                    Fetching remaining pending requests progressively in background
+                  </span>
+                </div>
+              )}
+
+              <div className="card overflow-hidden bg-white border border-slate-200/90 rounded-2xl shadow-2xs">
 
               {/* Desktop Minimal Expanded Table */}
               <div className="hidden sm:block overflow-x-auto">
@@ -818,8 +917,16 @@ export default function FacultyRequests() {
                 </motion.div>
               </div>
 
+              {/* Progressive Loading indicator in table/card footer */}
+              {isProgressiveLoadingPending && (
+                <div className="py-3 px-4 bg-orange-50/50 border-t border-orange-100/80 flex items-center justify-center gap-2 text-[12.5px] text-orange-600 font-semibold">
+                  <Loader2 size={13} className="animate-spin text-orange-500" />
+                  <span>Loading more requests…</span>
+                </div>
+              )}
+
               {/* ── Load More Controls ── */}
-              {(requestsList.hasMore || filtered.length < (requestsList.total || 0)) && (
+              {!isProgressiveLoadingPending && (requestsList.hasMore || filtered.length < (requestsList.total || 0)) && (
                 <div className="py-3.5 px-4 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between gap-3">
                   <span className="text-[12px] text-slate-400 font-medium">
                     Showing <span className="font-semibold text-slate-700">{filtered.length}</span> of{' '}
@@ -827,17 +934,24 @@ export default function FacultyRequests() {
                   </span>
                   <button
                     type="button"
-                    onClick={() => setDisplayLimit(prev => prev + 25)}
-                    disabled={isFetching}
+                    onClick={() => {
+                      if (tab === 'pending') {
+                        setDisplayLimitPending(prev => prev + 25);
+                      } else {
+                        setDisplayLimitHistorical(prev => prev + 25);
+                      }
+                    }}
+                    disabled={tab === 'pending' ? isFetchingMorePending : isFetchingHistorical}
                     className="px-3 py-1.5 bg-white hover:bg-slate-50 active:scale-95 text-slate-600 hover:text-slate-900 border border-slate-200 rounded-lg text-[12px] font-semibold transition-all shadow-2xs cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
                   >
-                    {isFetching && <Loader2 size={12} className="animate-spin text-slate-400" />}
+                    {(tab === 'pending' ? isFetchingMorePending : isFetchingHistorical) && <Loader2 size={12} className="animate-spin text-slate-400" />}
                     <span>Load more</span>
                   </button>
                 </div>
               )}
 
             </div>
+          </>
           )}
         </motion.div>
 
