@@ -373,7 +373,6 @@ export default function Developers() {
 
           <div className="flex items-center gap-4">
             <Link to="/" className="hover:text-zinc-900 transition-colors">Home</Link>
-            <Link to="/recruitment" className="hover:text-zinc-900 transition-colors font-medium text-orange-600">Recruitment</Link>
             <Link to="/permissions" className="hover:text-zinc-900 transition-colors">Permissions</Link>
             <Link to="/login" className="hover:text-zinc-900 transition-colors">Login</Link>
             <a

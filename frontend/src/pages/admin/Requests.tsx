@@ -11,6 +11,7 @@ import ExcelJS from 'exceljs';
 import { PageWrapper } from '../../components/layout/PageWrapper';
 import { EmptyState } from '../../components/shared/EmptyState';
 import { Modal } from '../../components/shared/Modal';
+import { VerifiedActivityBadge } from '../../components/shared/VerifiedActivityBadge';
 import { formatDate, formatSubmittedAt, formatTime, getPeriodsFromRequest, DEPARTMENTS, REASON_LABELS } from '../../lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import * as api from '../../lib/api';
@@ -1092,6 +1093,7 @@ export default function AdminRequests() {
                               <span className="text-[13px] font-semibold text-slate-900">
                                 {req.student?.name || req.studentName || 'Unknown Student'}
                               </span>
+                              <VerifiedActivityBadge student={req.student} studentId={req.studentId} rollNumber={req.rollNumber} />
                               {req.student?.section && (
                                 <span className="text-[10.5px] font-medium px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 leading-normal">
                                   {req.student.section}

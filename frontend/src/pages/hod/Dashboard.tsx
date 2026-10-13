@@ -11,17 +11,16 @@ import * as api from '../../lib/api';
 import { Avatar } from '../../components/shared/Avatar';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { formatDate } from '../../lib/utils';
-import type { AttendanceRequest } from '../../types';
 import { AnnouncementRenderer } from '../../components/announcements/AnnouncementRenderer';
 
 export default function HODDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const { data: requestsList = [], isLoading } = useQuery({
-    queryKey: ['requests'],
-    queryFn: () => api.getRequests(),
-    refetchInterval: 5000,
+  const { data: summaryData, isLoading } = useQuery({
+    queryKey: ['requests-summary'],
+    queryFn: () => api.getRequestsSummary(),
+    refetchInterval: 30000,
   });
 
   const { data: announcements = [] } = useQuery({
@@ -30,9 +29,10 @@ export default function HODDashboard() {
     refetchInterval: 60000,
   });
 
-  const pendingCount = requestsList.filter((r: AttendanceRequest) => r.status === 'pending').length;
-  const approvedCount = requestsList.filter((r: AttendanceRequest) => r.status === 'approved').length;
-  const rejectedCount = requestsList.filter((r: AttendanceRequest) => r.status === 'rejected').length;
+  const totalCount = summaryData?.stats.total ?? 0;
+  const pendingCount = summaryData?.stats.pending ?? 0;
+  const approvedCount = summaryData?.stats.approved ?? 0;
+  const rejectedCount = summaryData?.stats.rejected ?? 0;
 
   const quickLinks = [
     { label: 'All Requests', description: 'Review & manage student permission requests', icon: ClipboardList, to: '/hod/requests', color: '#F97316', bg: 'rgba(249,115,22,0.08)' },
@@ -40,7 +40,7 @@ export default function HODDashboard() {
     { label: 'Analytics Reports', description: 'Department-wide attendance permission metrics', icon: BarChart2, to: '/hod/reports', color: '#0F172A', bg: 'rgba(15,23,42,0.08)' },
   ];
 
-  const recentRequests = requestsList.slice(0, 5);
+  const recentRequests = summaryData?.recent ?? [];
 
   return (
     <PageWrapper role="hod">
@@ -105,7 +105,7 @@ export default function HODDashboard() {
               <span className="text-[12px] font-semibold text-slate-400">Total Requests</span>
               <ClipboardList size={16} className="text-orange-500" />
             </div>
-            <p className="text-[24px] font-heading font-bold text-slate-900">{requestsList.length}</p>
+            <p className="text-[24px] font-heading font-bold text-slate-900">{totalCount}</p>
           </div>
 
           <div className="card p-4 bg-white border border-slate-200/90 rounded-2xl shadow-2xs">
@@ -143,7 +143,7 @@ export default function HODDashboard() {
           <div className="p-4 sm:px-6 border-b border-slate-100 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <h2 className="text-[15px] font-bold text-slate-900">Recent Permission Requests</h2>
-              <span className="text-xs text-slate-400 font-medium">({requestsList.length} total)</span>
+              <span className="text-xs text-slate-400 font-medium">({totalCount} total)</span>
             </div>
             <button
               onClick={() => navigate('/hod/requests')}

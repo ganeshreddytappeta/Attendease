@@ -72,30 +72,58 @@ router.get('/my-duties', verifyToken, async (req: Request, res: Response) => {
     }
 
     const { todayDate, maxDate } = getKolkataDateBounds();
+    const showAll = req.query['all'] === 'true' || req.query['scope'] === 'all' || req.query['history'] === 'true';
 
-    // Query assignments for logged-in faculty in the date range
+    // Query assignments for logged-in faculty (within 3-day window by default, or all if requested)
     const duties = await prisma.invigilationDuty.findMany({
       where: {
         assignments: {
           some: { facultyId: dbUser.id },
         },
-        date: {
-          gte: todayDate,
-          lte: maxDate,
+        ...(showAll ? {} : {
+          date: {
+            gte: todayDate,
+            lte: maxDate,
+          },
+        }),
+      },
+      include: {
+        assignments: {
+          include: {
+            faculty: {
+              select: { id: true, name: true, department: true, email: true },
+            },
+          },
         },
       },
       orderBy: [{ date: 'asc' }, { session: 'asc' }],
     });
 
-    const formattedDuties = duties.map((duty) => ({
-      id:        duty.id,
-      examType:  duty.examType,
-      date:      duty.date,
-      session:   duty.session,
-      startTime: duty.startTime ?? null,
-      endTime:   duty.endTime ?? null,
-      status:    'UPCOMING' as const,
-    }));
+    const formattedDuties = duties.map((duty) => {
+      const isPast = duty.date < todayDate;
+      const isToday = duty.date === todayDate;
+      const coInvigilators = duty.assignments
+        .filter((a) => a.facultyId !== dbUser.id)
+        .map((a) => ({
+          id: a.faculty.id,
+          name: a.faculty.name,
+          department: a.faculty.department,
+          email: a.faculty.email,
+        }));
+
+      return {
+        id:              duty.id,
+        examType:        duty.examType,
+        date:            duty.date,
+        session:         duty.session,
+        startTime:       duty.startTime ?? null,
+        endTime:         duty.endTime ?? null,
+        status:          isPast ? ('COMPLETED' as const) : ('UPCOMING' as const),
+        isToday,
+        isPast,
+        coInvigilators,
+      };
+    });
 
     res.json({
       duties: formattedDuties,

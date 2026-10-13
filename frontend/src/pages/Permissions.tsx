@@ -12,6 +12,7 @@ import { PageWrapper } from '../components/layout/PageWrapper';
 import * as api from '../lib/api';
 import type { AttendanceRequest } from '../types';
 import { formatTime, getPeriodsFromRequest } from '../lib/utils';
+import { VerifiedActivityBadge } from '../components/shared/VerifiedActivityBadge';
 import logo from '../assets/logo.png';
 
 export interface ExtendedAttendanceRequest extends AttendanceRequest {
@@ -669,6 +670,7 @@ const PermissionGrid = React.memo(({
                           <span className="font-mono font-bold text-slate-900">{rollNo}</span>
                           <span className="text-slate-400">•</span>
                           <span className="font-medium text-slate-700 truncate">{studentName}</span>
+                          <VerifiedActivityBadge student={pass.student} studentId={pass.studentId} rollNumber={rollNo} />
                         </div>
                         <p className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">
                           <Calendar size={11} className="text-orange-500 shrink-0" />
@@ -1884,7 +1886,10 @@ export default function PermissionsPage() {
                         {/* Text content */}
                         <div className="min-w-0 flex-1 p-3.5">
                           <p className="text-[10px] text-orange-600 font-bold uppercase tracking-wider">Student Name &amp; Roll</p>
-                          <p className="font-extrabold text-slate-900 text-[14px] truncate leading-snug">{selectedPass.student?.name ?? selectedPass.studentId}</p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="font-extrabold text-slate-900 text-[14px] truncate leading-snug">{selectedPass.student?.name ?? selectedPass.studentId}</p>
+                            <VerifiedActivityBadge student={selectedPass.student} studentId={selectedPass.studentId} size="md" />
+                          </div>
                           <div className="flex items-center gap-2 mt-1 flex-wrap">
                             <span className="font-mono font-black text-slate-900 text-[13px]">{selectedPass.student?.rollNumber ?? selectedPass.studentId}</span>
                             <span

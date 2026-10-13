@@ -8,6 +8,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as api from '../../lib/api';
 import { formatDate, formatTime, formatSubmittedAt } from '../../lib/utils';
 import { ProofPreviewModal } from '../../components/shared/ProofPreviewModal';
+import { VerifiedActivityBadge } from '../../components/shared/VerifiedActivityBadge';
 import NotFound from '../NotFound';
 
 export default function FacultyRequestDetails() {
@@ -183,9 +184,12 @@ export default function FacultyRequestDetails() {
           {/* Info */}
           <div className="flex-1 p-4 sm:px-5 sm:py-4 flex flex-col justify-center gap-1">
             <p className="text-[10px] font-bold uppercase tracking-wider text-orange-600">Student Profile</p>
-            <p className="text-[16px] font-bold text-slate-900 leading-tight">
-              {request.student?.name}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-[16px] font-bold text-slate-900 leading-tight">
+                {request.student?.name}
+              </p>
+              <VerifiedActivityBadge student={request.student} studentId={request.studentId} size="md" />
+            </div>
             <div className="flex items-center gap-2 flex-wrap text-[13px] text-slate-600 mt-0.5">
               <span className="font-mono font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
                 {request.student?.rollNumber}

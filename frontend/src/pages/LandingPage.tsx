@@ -288,10 +288,6 @@ export default function LandingPage() {
                 <Code2 size={13} />
                 <span>Meet The Developers</span>
               </Link>
-              <Link to="/recruitment" className="text-orange-600 hover:text-orange-700 font-bold flex items-center gap-1">
-                <Sparkles size={13} />
-                <span>We're Recruiting</span>
-              </Link>
               <Link to="/permissions" className="hover:text-slate-900 transition-colors">
                 Public Attendance
               </Link>

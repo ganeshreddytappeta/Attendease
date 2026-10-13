@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -11,8 +11,9 @@ import { StatusBadge } from '../../components/shared/StatusBadge';
 import { Avatar } from '../../components/shared/Avatar';
 import { EmptyState } from '../../components/shared/EmptyState';
 import { Button } from '../../components/ui/Button';
+import { VerifiedActivityBadge } from '../../components/shared/VerifiedActivityBadge';
 import { formatDate, DEPARTMENTS } from '../../lib/utils';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import * as api from '../../lib/api';
 import type { AttendanceRequest } from '../../types';
 
@@ -31,8 +32,12 @@ export default function FacultyRequests() {
   const [search, setSearch]         = useState('');
   const [department, setDept]       = useState('');
   const [yearFilter, setYearFilter] = useState('');
-  const [tab, setTab]               = useState<TabValue>('all');
+  // Default to pending requests so pending requests load immediately without blocking
+  const [tab, setTab]               = useState<TabValue>('pending');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
+  const [displayLimitPending, setDisplayLimitPending] = useState<number>(50);
+  const [displayLimitHistorical, setDisplayLimitHistorical] = useState<number>(25);
   const [toastMsg, setToastMsg]     = useState<{ text: string; isError?: boolean } | null>(null);
 
   const showToast = (text: string, isError = false) => {
@@ -40,11 +45,98 @@ export default function FacultyRequests() {
     setTimeout(() => setToastMsg(null), 4000);
   };
 
-  const { data: requestsList = [] } = useQuery({
-    queryKey: ['requests'],
-    queryFn: () => api.getRequests(),
-    refetchInterval: 5000,
+  // 1. Instant Lightweight Summary Counts: provides true numbers for tabs with zero delay
+  const { data: summaryData } = useQuery({
+    queryKey: ['requests-summary'],
+    queryFn: () => api.getRequestsSummary(),
+    staleTime: 30000,
+    refetchInterval: 30000,
   });
+
+  // 2. High-Priority: Immediately fetch ONLY the latest 10 Pending Requests on initial load
+  const {
+    data: initialPendingRequests,
+    isLoading: isLoadingInitialPending,
+    isFetching: isFetchingInitialPending,
+  } = useQuery({
+    queryKey: ['requests', 'pending', 10],
+    queryFn: () => api.getRequests({
+      status: 'pending',
+      limit: 10,
+    }),
+    staleTime: 30000,
+    refetchInterval: 30000,
+  });
+
+  // 3. Progressive Background Fetch: Fetch additional pending requests progressively
+  const {
+    data: fullPendingRequests,
+    isFetching: isFetchingMorePending,
+  } = useQuery({
+    queryKey: ['requests', 'pending', displayLimitPending],
+    queryFn: () => api.getRequests({
+      status: 'pending',
+      limit: displayLimitPending,
+    }),
+    placeholderData: keepPreviousData,
+    staleTime: 30000,
+    refetchInterval: 30000,
+  });
+
+  // 4. Lazy Historical Fetch: Only fetched when user switches to Approved, Rejected, or All
+  const isHistoricalTab = tab !== 'pending';
+
+  const {
+    data: historicalRequests,
+    isLoading: isLoadingHistorical,
+    isFetching: isFetchingHistorical,
+  } = useQuery({
+    queryKey: ['requests', tab, displayLimitHistorical],
+    queryFn: () => api.getRequests({
+      status: tab === 'all' ? undefined : tab,
+      limit: displayLimitHistorical,
+    }),
+    enabled: isHistoricalTab,
+    placeholderData: keepPreviousData,
+    staleTime: 30000,
+    refetchInterval: isHistoricalTab ? 30000 : false,
+  });
+
+  // 5. Preload historical lists lazily in the background with low priority after initial pending load finishes
+  useEffect(() => {
+    if (initialPendingRequests && !isFetchingInitialPending) {
+      const timer = setTimeout(() => {
+        void queryClient.prefetchQuery({
+          queryKey: ['requests', 'approved', 25],
+          queryFn: () => api.getRequests({ status: 'approved', limit: 25 }),
+          staleTime: 30000,
+        });
+        void queryClient.prefetchQuery({
+          queryKey: ['requests', 'rejected', 25],
+          queryFn: () => api.getRequests({ status: 'rejected', limit: 25 }),
+          staleTime: 30000,
+        });
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [initialPendingRequests, isFetchingInitialPending, queryClient]);
+
+  // Combined requests list based on active tab
+  const pendingRequestsList = fullPendingRequests ?? initialPendingRequests ?? [];
+  const requestsList = tab === 'pending'
+    ? pendingRequestsList
+    : (historicalRequests ?? []);
+
+  // Track if progressive pending fetch is actively in flight
+  const isProgressiveLoadingPending =
+    tab === 'pending' &&
+    isFetchingMorePending &&
+    Boolean(initialPendingRequests || fullPendingRequests);
+
+  // Full-page loading only occurs if initial 10 pending requests haven't arrived yet
+  const isInitialLoading = tab === 'pending'
+    ? (isLoadingInitialPending && !initialPendingRequests && !fullPendingRequests)
+    : (isLoadingHistorical && !historicalRequests);
 
   const filtered = requestsList.filter((req: AttendanceRequest) => {
     const matchesTab    = tab === 'all' || req.status === tab;
@@ -84,67 +176,211 @@ export default function FacultyRequests() {
     }
   };
 
-  // Bulk Accept Mutation
+  // Bulk Accept Mutation with Optimistic UI
   const bulkAcceptMutation = useMutation({
     mutationFn: (ids: string[]) => api.bulkReviewRequests(ids, 'approve'),
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['requests'] });
-      queryClient.invalidateQueries({ queryKey: ['public-approved-requests-for-attendance'] });
-      setSelectedIds(new Set());
-      showToast(`Successfully approved ${data.count} request(s)!`);
+    onMutate: async (ids: string[]) => {
+      await queryClient.cancelQueries({ queryKey: ['requests'] });
+
+      setProcessingIds(prev => {
+        const next = new Set(prev);
+        ids.forEach(id => next.add(id));
+        return next;
+      });
+
+      queryClient.setQueriesData({ queryKey: ['requests'] }, (old: any) => {
+        if (!Array.isArray(old)) return old;
+        const idSet = new Set(ids);
+        const mapped = old.map((r: AttendanceRequest) =>
+          (idSet.has(r.id) || idSet.has(r.requestId))
+            ? { ...r, status: 'approved' as const, finalDecisionBy: 'Faculty', finalDecisionName: 'You' }
+            : r
+        );
+        (mapped as any).total = (old as any).total;
+        (mapped as any).hasMore = (old as any).hasMore;
+        return mapped;
+      });
+
+      return { ids };
     },
     onError: (err: Error) => {
+      void queryClient.invalidateQueries({ queryKey: ['requests'] });
+      void queryClient.invalidateQueries({ queryKey: ['requests-summary'] });
       showToast(err.message || 'Failed to approve requests', true);
     },
+    onSuccess: (data) => {
+      setSelectedIds(new Set());
+      showToast(`Successfully approved ${data.count} request(s)!`);
+      void queryClient.invalidateQueries({ queryKey: ['requests'] });
+      void queryClient.invalidateQueries({ queryKey: ['requests-summary'] });
+      void queryClient.invalidateQueries({ queryKey: ['public-approved-requests-for-attendance'] });
+    },
+    onSettled: (_, __, ids) => {
+      setProcessingIds(prev => {
+        const next = new Set(prev);
+        ids.forEach(id => next.delete(id));
+        return next;
+      });
+    },
   });
 
-  // Bulk Reject Mutation
+  // Bulk Reject Mutation with Optimistic UI
   const bulkRejectMutation = useMutation({
     mutationFn: (ids: string[]) => api.bulkReviewRequests(ids, 'reject', 'Rejected by Faculty (Bulk)'),
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['requests'] });
-      queryClient.invalidateQueries({ queryKey: ['public-approved-requests-for-attendance'] });
-      setSelectedIds(new Set());
-      showToast(`Rejected ${data.count} request(s).`, true);
+    onMutate: async (ids: string[]) => {
+      await queryClient.cancelQueries({ queryKey: ['requests'] });
+
+      setProcessingIds(prev => {
+        const next = new Set(prev);
+        ids.forEach(id => next.add(id));
+        return next;
+      });
+
+      queryClient.setQueriesData({ queryKey: ['requests'] }, (old: any) => {
+        if (!Array.isArray(old)) return old;
+        const idSet = new Set(ids);
+        const mapped = old.map((r: AttendanceRequest) =>
+          (idSet.has(r.id) || idSet.has(r.requestId))
+            ? { ...r, status: 'rejected' as const, finalDecisionBy: 'Faculty', finalDecisionName: 'You' }
+            : r
+        );
+        (mapped as any).total = (old as any).total;
+        (mapped as any).hasMore = (old as any).hasMore;
+        return mapped;
+      });
+
+      return { ids };
     },
     onError: (err: Error) => {
+      void queryClient.invalidateQueries({ queryKey: ['requests'] });
+      void queryClient.invalidateQueries({ queryKey: ['requests-summary'] });
       showToast(err.message || 'Failed to reject requests', true);
+    },
+    onSuccess: (data) => {
+      setSelectedIds(new Set());
+      showToast(`Rejected ${data.count} request(s).`, true);
+      void queryClient.invalidateQueries({ queryKey: ['requests'] });
+      void queryClient.invalidateQueries({ queryKey: ['requests-summary'] });
+      void queryClient.invalidateQueries({ queryKey: ['public-approved-requests-for-attendance'] });
+    },
+    onSettled: (_, __, ids) => {
+      setProcessingIds(prev => {
+        const next = new Set(prev);
+        ids.forEach(id => next.delete(id));
+        return next;
+      });
     },
   });
 
-  // Single Quick Accept Mutation
+  // Single Quick Accept Mutation with 0ms Optimistic UI & Row-Level Concurrency
   const quickAcceptMutation = useMutation({
     mutationFn: (id: string) => api.reviewRequest(id, 'approve'),
-    onSuccess: (updated) => {
-      queryClient.invalidateQueries({ queryKey: ['requests'] });
-      queryClient.invalidateQueries({ queryKey: ['public-approved-requests-for-attendance'] });
+    onMutate: async (id: string) => {
+      await queryClient.cancelQueries({ queryKey: ['requests'] });
+
+      setProcessingIds(prev => new Set(prev).add(id));
+
+      queryClient.setQueriesData({ queryKey: ['requests'] }, (old: any) => {
+        if (!Array.isArray(old)) return old;
+        const mapped = old.map((r: AttendanceRequest) =>
+          (r.id === id || r.requestId === id)
+            ? { ...r, status: 'approved' as const, finalDecisionBy: 'Faculty', finalDecisionName: 'You' }
+            : r
+        );
+        (mapped as any).total = (old as any).total;
+        (mapped as any).hasMore = (old as any).hasMore;
+        return mapped;
+      });
+
+      return { id };
+    },
+    onError: (err: Error) => {
+      void queryClient.invalidateQueries({ queryKey: ['requests'] });
+      void queryClient.invalidateQueries({ queryKey: ['requests-summary'] });
+      showToast(err.message || 'Failed to approve request', true);
+    },
+    onSuccess: (updated, id) => {
+      queryClient.setQueriesData({ queryKey: ['requests'] }, (old: any) => {
+        if (!Array.isArray(old)) return old;
+        const mapped = old.map((r: AttendanceRequest) =>
+          (r.id === updated.id || r.requestId === updated.id) ? { ...r, ...updated } : r
+        );
+        (mapped as any).total = (old as any).total;
+        (mapped as any).hasMore = (old as any).hasMore;
+        return mapped;
+      });
       setSelectedIds(prev => {
         const next = new Set(prev);
-        next.delete(updated.id);
+        next.delete(id);
         return next;
       });
       showToast(`Approved request for ${updated.student?.name || 'student'}!`);
+      void queryClient.invalidateQueries({ queryKey: ['requests'] });
+      void queryClient.invalidateQueries({ queryKey: ['requests-summary'] });
+      void queryClient.invalidateQueries({ queryKey: ['public-approved-requests-for-attendance'] });
     },
-    onError: (err: Error) => {
-      showToast(err.message || 'Failed to approve request', true);
+    onSettled: (_, __, id) => {
+      setProcessingIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     },
   });
 
-  // Single Quick Reject Mutation
+  // Single Quick Reject Mutation with 0ms Optimistic UI & Row-Level Concurrency
   const quickRejectMutation = useMutation({
     mutationFn: (id: string) => api.reviewRequest(id, 'reject', 'Rejected by Faculty'),
-    onSuccess: (updated) => {
-      queryClient.invalidateQueries({ queryKey: ['requests'] });
-      queryClient.invalidateQueries({ queryKey: ['public-approved-requests-for-attendance'] });
+    onMutate: async (id: string) => {
+      await queryClient.cancelQueries({ queryKey: ['requests'] });
+
+      setProcessingIds(prev => new Set(prev).add(id));
+
+      queryClient.setQueriesData({ queryKey: ['requests'] }, (old: any) => {
+        if (!Array.isArray(old)) return old;
+        const mapped = old.map((r: AttendanceRequest) =>
+          (r.id === id || r.requestId === id)
+            ? { ...r, status: 'rejected' as const, finalDecisionBy: 'Faculty', finalDecisionName: 'You' }
+            : r
+        );
+        (mapped as any).total = (old as any).total;
+        (mapped as any).hasMore = (old as any).hasMore;
+        return mapped;
+      });
+
+      return { id };
+    },
+    onError: (err: Error) => {
+      void queryClient.invalidateQueries({ queryKey: ['requests'] });
+      void queryClient.invalidateQueries({ queryKey: ['requests-summary'] });
+      showToast(err.message || 'Failed to reject request', true);
+    },
+    onSuccess: (updated, id) => {
+      queryClient.setQueriesData({ queryKey: ['requests'] }, (old: any) => {
+        if (!Array.isArray(old)) return old;
+        const mapped = old.map((r: AttendanceRequest) =>
+          (r.id === updated.id || r.requestId === updated.id) ? { ...r, ...updated } : r
+        );
+        (mapped as any).total = (old as any).total;
+        (mapped as any).hasMore = (old as any).hasMore;
+        return mapped;
+      });
       setSelectedIds(prev => {
         const next = new Set(prev);
-        next.delete(updated.id);
+        next.delete(id);
         return next;
       });
       showToast(`Rejected request for ${updated.student?.name || 'student'}.`, true);
+      void queryClient.invalidateQueries({ queryKey: ['requests'] });
+      void queryClient.invalidateQueries({ queryKey: ['requests-summary'] });
+      void queryClient.invalidateQueries({ queryKey: ['public-approved-requests-for-attendance'] });
     },
-    onError: (err: Error) => {
-      showToast(err.message || 'Failed to reject request', true);
+    onSettled: (_, __, id) => {
+      setProcessingIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     },
   });
 
@@ -264,10 +500,10 @@ export default function FacultyRequests() {
                 onChange={e => setTab(e.target.value as TabValue)}
                 className="h-[38px] px-3 text-[12.5px] bg-white border border-slate-200 rounded-xl outline-none focus:border-orange-500 cursor-pointer text-slate-700 shadow-subtle font-medium"
               >
-                <option value="all">All Statuses ({requestsList.length})</option>
-                <option value="pending">Pending ({requestsList.filter(r => r.status === 'pending').length})</option>
-                <option value="approved">Approved ({requestsList.filter(r => r.status === 'approved').length})</option>
-                <option value="rejected">Rejected ({requestsList.filter(r => r.status === 'rejected').length})</option>
+                <option value="pending">Pending ({summaryData?.stats.pending ?? pendingRequestsList.length})</option>
+                <option value="all">All Statuses ({summaryData?.stats.total ?? (tab === 'all' ? requestsList.length : '…')})</option>
+                <option value="approved">Approved ({summaryData?.stats.approved ?? (tab === 'approved' ? requestsList.length : '…')})</option>
+                <option value="rejected">Rejected ({summaryData?.stats.rejected ?? (tab === 'rejected' ? requestsList.length : '…')})</option>
               </select>
             </div>
           </div>
@@ -279,18 +515,40 @@ export default function FacultyRequests() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.14 }}
         >
-          {filtered.length === 0 ? (
+          {isInitialLoading ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="w-12 h-12 rounded-2xl bg-orange-50 flex items-center justify-center mb-4">
+                <Loader2 size={22} className="text-orange-500 animate-spin" />
+              </div>
+              <h3 className="text-[16px] font-semibold text-[#111111] mb-1">Loading requests...</h3>
+              <p className="text-[14px] text-[#6B7280] max-w-xs">Fetching latest student attendance requests</p>
+            </div>
+          ) : filtered.length === 0 ? (
             <EmptyState
               title="No requests found"
               description="Try adjusting your filters."
               action={
-                <Button variant="secondary" onClick={() => { setSearch(''); setDept(''); setTab('all'); }}>
+                <Button variant="secondary" onClick={() => { setSearch(''); setDept(''); setTab('pending'); }}>
                   Clear filters
                 </Button>
               }
             />
           ) : (
-            <div className="card overflow-hidden bg-white border border-slate-200/90 rounded-2xl shadow-2xs">
+            <>
+              {/* Progressive Loading State Banner */}
+              {isProgressiveLoadingPending && (
+                <div className="mb-3 px-3.5 py-2.5 bg-orange-50/90 border border-orange-200/80 rounded-xl flex items-center justify-between text-xs text-orange-700 shadow-2xs">
+                  <div className="flex items-center gap-2">
+                    <Loader2 size={13} className="animate-spin text-orange-500 shrink-0" />
+                    <span className="font-bold">Loading more requests…</span>
+                  </div>
+                  <span className="text-[11.5px] text-orange-600/90 font-medium hidden sm:inline">
+                    Fetching remaining pending requests progressively in background
+                  </span>
+                </div>
+              )}
+
+              <div className="card overflow-hidden bg-white border border-slate-200/90 rounded-2xl shadow-2xs">
 
               {/* Desktop Minimal Expanded Table */}
               <div className="hidden sm:block overflow-x-auto">
@@ -355,9 +613,10 @@ export default function FacultyRequests() {
                           </td>
 
                           <td className="px-4 py-3">
-                            <div className="flex items-center gap-2.5">
+                            <div className="flex items-center gap-2">
                               <Avatar name={req.student?.name || 'S'} src={req.student?.avatarUrl} size="sm" role="student" />
                               <span className="text-[13px] font-semibold text-slate-800 truncate max-w-[180px]">{req.student?.name}</span>
+                              <VerifiedActivityBadge student={req.student} />
                             </div>
                           </td>
                           <td className="px-3 py-3">
@@ -446,21 +705,29 @@ export default function FacultyRequests() {
                               <div className="flex items-center justify-end gap-1.5">
                                 <button
                                   type="button"
-                                  disabled={quickAcceptMutation.isPending}
+                                  disabled={processingIds.has(req.id)}
                                   onClick={() => quickAcceptMutation.mutate(req.id)}
                                   title="Accept Request"
-                                  className="w-7 h-7 bg-orange-500/15 hover:bg-orange-500 active:scale-90 text-orange-600 hover:text-white border border-orange-400/40 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-2xs"
+                                  className="w-7 h-7 bg-orange-500/15 hover:bg-orange-500 active:scale-90 text-orange-600 hover:text-white border border-orange-400/40 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-2xs disabled:opacity-50"
                                 >
-                                  <Check size={13} className="stroke-[3.5]" />
+                                  {processingIds.has(req.id) ? (
+                                    <Loader2 size={13} className="animate-spin text-orange-500" />
+                                  ) : (
+                                    <Check size={13} className="stroke-[3.5]" />
+                                  )}
                                 </button>
                                 <button
                                   type="button"
-                                  disabled={quickRejectMutation.isPending}
+                                  disabled={processingIds.has(req.id)}
                                   onClick={() => quickRejectMutation.mutate(req.id)}
                                   title="Reject Request"
-                                  className="w-7 h-7 bg-rose-500/15 hover:bg-rose-500 active:scale-90 text-rose-600 hover:text-white border border-rose-400/40 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-2xs"
+                                  className="w-7 h-7 bg-rose-500/15 hover:bg-rose-500 active:scale-90 text-rose-600 hover:text-white border border-rose-400/40 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-2xs disabled:opacity-50"
                                 >
-                                  <X size={13} className="stroke-[3.5]" />
+                                  {processingIds.has(req.id) ? (
+                                    <Loader2 size={13} className="animate-spin text-rose-500" />
+                                  ) : (
+                                    <X size={13} className="stroke-[3.5]" />
+                                  )}
                                 </button>
                               </div>
                             ) : (
@@ -541,7 +808,10 @@ export default function FacultyRequests() {
                             </div>
                             <Avatar name={req.student?.name || 'S'} src={req.student?.avatarUrl} size="sm" role="student" />
                             <div className="min-w-0 flex-1">
-                              <p className="text-[13.5px] font-bold text-slate-800 leading-tight truncate">{req.student?.name}</p>
+                              <div className="flex items-center gap-1.5">
+                                <p className="text-[13.5px] font-bold text-slate-800 leading-tight truncate">{req.student?.name}</p>
+                                <VerifiedActivityBadge student={req.student} />
+                              </div>
                               <p className="text-[11px] font-mono text-slate-400 mt-0.5">{req.student?.rollNumber}</p>
                             </div>
                           </div>
@@ -552,21 +822,29 @@ export default function FacultyRequests() {
                               <div className="flex items-center gap-1.5">
                                 <button
                                   type="button"
-                                  disabled={quickAcceptMutation.isPending}
+                                  disabled={processingIds.has(req.id)}
                                   onClick={() => quickAcceptMutation.mutate(req.id)}
-                                  className="w-8 h-8 bg-orange-500/15 hover:bg-orange-500 active:scale-90 text-orange-600 hover:text-white border border-orange-400/40 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-2xs"
+                                  className="w-8 h-8 bg-orange-500/15 hover:bg-orange-500 active:scale-90 text-orange-600 hover:text-white border border-orange-400/40 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-2xs disabled:opacity-50"
                                   title="Accept Request"
                                 >
-                                  <Check size={16} className="stroke-[3.5]" />
+                                  {processingIds.has(req.id) ? (
+                                    <Loader2 size={15} className="animate-spin text-orange-500" />
+                                  ) : (
+                                    <Check size={16} className="stroke-[3.5]" />
+                                  )}
                                 </button>
                                 <button
                                   type="button"
-                                  disabled={quickRejectMutation.isPending}
+                                  disabled={processingIds.has(req.id)}
                                   onClick={() => quickRejectMutation.mutate(req.id)}
-                                  className="w-8 h-8 bg-rose-500/15 hover:bg-rose-500 active:scale-90 text-rose-600 hover:text-white border border-rose-400/40 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-2xs"
+                                  className="w-8 h-8 bg-rose-500/15 hover:bg-rose-500 active:scale-90 text-rose-600 hover:text-white border border-rose-400/40 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-2xs disabled:opacity-50"
                                   title="Reject Request"
                                 >
-                                  <X size={16} className="stroke-[3.5]" />
+                                  {processingIds.has(req.id) ? (
+                                    <Loader2 size={15} className="animate-spin text-rose-500" />
+                                  ) : (
+                                    <X size={16} className="stroke-[3.5]" />
+                                  )}
                                 </button>
                               </div>
                             ) : (
@@ -639,7 +917,41 @@ export default function FacultyRequests() {
                 </motion.div>
               </div>
 
+              {/* Progressive Loading indicator in table/card footer */}
+              {isProgressiveLoadingPending && (
+                <div className="py-3 px-4 bg-orange-50/50 border-t border-orange-100/80 flex items-center justify-center gap-2 text-[12.5px] text-orange-600 font-semibold">
+                  <Loader2 size={13} className="animate-spin text-orange-500" />
+                  <span>Loading more requests…</span>
+                </div>
+              )}
+
+              {/* ── Load More Controls ── */}
+              {!isProgressiveLoadingPending && (requestsList.hasMore || filtered.length < (requestsList.total || 0)) && (
+                <div className="py-3.5 px-4 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between gap-3">
+                  <span className="text-[12px] text-slate-400 font-medium">
+                    Showing <span className="font-semibold text-slate-700">{filtered.length}</span> of{' '}
+                    <span className="font-semibold text-slate-700">{requestsList.total || requestsList.length}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (tab === 'pending') {
+                        setDisplayLimitPending(prev => prev + 25);
+                      } else {
+                        setDisplayLimitHistorical(prev => prev + 25);
+                      }
+                    }}
+                    disabled={tab === 'pending' ? isFetchingMorePending : isFetchingHistorical}
+                    className="px-3 py-1.5 bg-white hover:bg-slate-50 active:scale-95 text-slate-600 hover:text-slate-900 border border-slate-200 rounded-lg text-[12px] font-semibold transition-all shadow-2xs cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    {(tab === 'pending' ? isFetchingMorePending : isFetchingHistorical) && <Loader2 size={12} className="animate-spin text-slate-400" />}
+                    <span>Load more</span>
+                  </button>
+                </div>
+              )}
+
             </div>
+          </>
           )}
         </motion.div>
 

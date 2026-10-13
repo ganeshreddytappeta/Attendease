@@ -8,7 +8,6 @@ import { UpcomingInvigilationWidget } from './components/UpcomingInvigilationWid
 import { useAuth } from '../../context/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as api from '../../lib/api';
-import type { AttendanceRequest } from '../../types';
 import { AnnouncementRenderer } from '../../components/announcements/AnnouncementRenderer';
 
 const cardVariants = {
@@ -25,9 +24,10 @@ export default function FacultyDashboard() {
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [photoSuccess, setPhotoSuccess] = useState(false);
 
-  const { data: requestsList = [] } = useQuery({
-    queryKey: ['requests'],
-    queryFn: () => api.getRequests(),
+  const { data: summaryData } = useQuery({
+    queryKey: ['requests-summary'],
+    queryFn: () => api.getRequestsSummary(),
+    refetchInterval: 30000,
   });
 
   const { data: announcements = [] } = useQuery({
@@ -48,6 +48,7 @@ export default function FacultyDashboard() {
         await updateProfile({ avatarUrl: url });
         void queryClient.invalidateQueries({ queryKey: ['faculty'] });
         void queryClient.invalidateQueries({ queryKey: ['requests'] });
+        void queryClient.invalidateQueries({ queryKey: ['requests-summary'] });
         setPhotoSuccess(true);
         setTimeout(() => setPhotoSuccess(false), 3500);
       }
@@ -59,10 +60,10 @@ export default function FacultyDashboard() {
     }
   };
 
-  const total = requestsList.length;
-  const pending = requestsList.filter((r: AttendanceRequest) => r.status === 'pending').length;
-  const approved = requestsList.filter((r: AttendanceRequest) => r.status === 'approved').length;
-  const rejected = requestsList.filter((r: AttendanceRequest) => r.status === 'rejected').length;
+  const total = summaryData?.stats.total ?? 0;
+  const pending = summaryData?.stats.pending ?? 0;
+  const approved = summaryData?.stats.approved ?? 0;
+  const rejected = summaryData?.stats.rejected ?? 0;
 
   return (
     <PageWrapper role="faculty">

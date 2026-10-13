@@ -23,6 +23,14 @@ export interface Student {
   section?: string;
   year?: string;
   avatarUrl?: string;
+  hasActivities?: boolean;
+  studentActivities?: Array<{
+    id?: string;
+    category?: string;
+    titleOrCompany?: string;
+    roleOrPosition?: string;
+    status?: string;
+  }>;
 }
 
 export interface Faculty {

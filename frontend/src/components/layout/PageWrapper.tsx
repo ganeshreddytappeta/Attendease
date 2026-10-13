@@ -33,7 +33,7 @@ const facultyNav = [
   { to: '/faculty', label: 'Dashboard', icon: Home },
   { to: '/faculty/attendance', label: 'Mark Attendance', icon: CheckSquare },
   { to: '/faculty/requests', label: 'Requests', icon: ClipboardList },
-  { to: '/faculty/students', label: 'Students', icon: Users },
+  { to: '/faculty/invigilation', label: 'Invigilation', icon: CalendarCheck },
   { to: '/faculty/student-activities', label: 'Student Activities', icon: Award },
 ];
 
@@ -76,7 +76,7 @@ const facultyMobileBottomNav: BottomNavItem[] = [
   { id: 'home', to: '/faculty', label: 'Dashboard', icon: Home, type: 'link' },
   { id: 'attendance', to: '/faculty/attendance', label: 'Attendance', icon: CheckSquare, type: 'link' },
   { id: 'requests', to: '/faculty/requests', label: 'Requests', icon: ClipboardList, type: 'link' },
-  { id: 'students', to: '/faculty/students', label: 'Students', icon: Users, type: 'link' },
+  { id: 'invigilation', to: '/faculty/invigilation', label: 'Invigilation', icon: CalendarCheck, type: 'link' },
   { id: 'student-activities', to: '/faculty/student-activities', label: 'Activities', icon: Award, type: 'link' },
 ];
 

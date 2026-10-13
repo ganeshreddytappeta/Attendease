@@ -13,6 +13,7 @@ import { formatDate, formatTime } from '../../lib/utils';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as api from '../../lib/api';
 import { ProofPreviewModal } from '../../components/shared/ProofPreviewModal';
+import { VerifiedActivityBadge } from '../../components/shared/VerifiedActivityBadge';
 import NotFound from '../NotFound';
 
 export default function HODRequestDetails() {
@@ -199,9 +200,12 @@ export default function HODRequestDetails() {
 
           {/* Info */}
           <div className="flex-1 p-4 sm:px-5 sm:py-4 flex flex-col justify-center gap-1.5">
-            <p className="text-[17px] font-heading font-bold text-slate-900">
-              {request.student?.name}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-[17px] font-heading font-bold text-slate-900">
+                {request.student?.name}
+              </p>
+              <VerifiedActivityBadge student={request.student} studentId={request.studentId} size="md" />
+            </div>
             <p className="text-[13px] text-slate-500">
               Roll No: <span className="font-bold text-slate-800">{request.student?.rollNumber}</span>
             </p>

@@ -23,6 +23,7 @@ import {
   UserPlus
 } from 'lucide-react';
 import { PageWrapper } from '../../components/layout/PageWrapper';
+import { EmptyState } from '../../components/shared/EmptyState';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as api from '../../lib/api';
 import type { StudentActivity, ActivityCategory, ActivityAuditLog } from '../../lib/api';
@@ -700,20 +701,19 @@ export default function StudentActivitiesPage({ role = 'faculty' }: StudentActiv
               <span className="text-xs font-semibold">Loading student activities...</span>
             </div>
           ) : filteredActivities.length === 0 ? (
-            <div className="p-12 text-center text-slate-400 space-y-3">
-              <Users size={36} className="mx-auto text-slate-300" />
-              <p className="text-sm font-bold text-slate-700">No student activity records found</p>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                No students are currently registered under <strong>{activeTab.toUpperCase()}</strong> matching your filter criteria.
-              </p>
-              <button
-                onClick={() => openAddModal()}
-                className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl bg-orange-600 text-white hover:bg-orange-700 transition"
-              >
-                <Plus size={14} />
-                <span>Add First Student</span>
-              </button>
-            </div>
+            <EmptyState
+              title="No student activity records found"
+              description={`No students are currently registered under ${activeTab.toUpperCase()} matching your filter criteria.`}
+              action={
+                <button
+                  onClick={() => openAddModal()}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl bg-orange-600 text-white hover:bg-orange-700 transition"
+                >
+                  <Plus size={14} />
+                  <span>Add First Student</span>
+                </button>
+              }
+            />
           ) : (
             <>
               <div className="hidden md:block overflow-x-auto">

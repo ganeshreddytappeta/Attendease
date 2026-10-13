@@ -1,15 +1,16 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Search, SlidersHorizontal, RotateCcw, Check, X, Paperclip, ShieldCheck } from 'lucide-react';
+import { Search, SlidersHorizontal, RotateCcw, Check, X, Paperclip, ShieldCheck, Loader2 } from 'lucide-react';
 import { PageWrapper } from '../../components/layout/PageWrapper';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { Avatar } from '../../components/shared/Avatar';
 import { EmptyState } from '../../components/shared/EmptyState';
 import { Button } from '../../components/ui/Button';
+import { VerifiedActivityBadge } from '../../components/shared/VerifiedActivityBadge';
 import { formatDate, DEPARTMENTS } from '../../lib/utils';
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import * as api from '../../lib/api';
 import type { AttendanceRequest } from '../../types';
 import { HODDirectExemptionModal } from './components/HODDirectExemptionModal';
@@ -29,31 +30,73 @@ export default function HODAllRequests() {
   const [department, setDept]   = useState('');
   const [yearFilter, setYearFilter] = useState('');
   const [tab, setTab]           = useState<TabValue>('all');
+  const [displayLimit, setDisplayLimit] = useState<number>(25);
+  const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
   const [isExemptionModalOpen, setIsExemptionModalOpen] = useState(false);
 
-  const { data: requestsList = [] } = useQuery({
-    queryKey: ['requests'],
-    queryFn: () => api.getRequests(),
-    refetchInterval: 5000,
+  const { data: requestsList = [], isFetching, isLoading } = useQuery({
+    queryKey: ['requests', displayLimit, tab],
+    queryFn: () => api.getRequests({
+      limit: displayLimit,
+      status: tab !== 'all' ? tab : undefined,
+    }),
+    placeholderData: keepPreviousData,
+    refetchInterval: 30000,
   });
 
   const reviewMutation = useMutation({
     mutationFn: async ({ id, action }: { id: string; action: 'approve' | 'reject' }) => {
-      try {
-        return await api.reviewRequest(id, action, undefined, true);
-      } catch (err) {
-        console.warn('API reviewRequest error, applying local optimistic override:', err);
-        queryClient.setQueryData(['requests'], (old: any[] | undefined) =>
-          old ? old.map(r => (r.id === id || r.requestId === id ? { ...r, status: action === 'approve' ? 'approved' : 'rejected' } : r)) : []
-        );
-      }
+      return await api.reviewRequest(id, action, undefined, true);
     },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['requests'] });
-      void queryClient.invalidateQueries({ queryKey: ['public-approved-requests'] });
+    onMutate: async ({ id, action }) => {
+      await queryClient.cancelQueries({ queryKey: ['requests'] });
+      const previousRequests = queryClient.getQueryData(['requests', displayLimit, tab]);
+
+      setProcessingIds(prev => new Set(prev).add(id));
+
+      queryClient.setQueriesData({ queryKey: ['requests'] }, (old: any) => {
+        if (!Array.isArray(old)) return old;
+        const mapped = old.map((r: AttendanceRequest) =>
+          (r.id === id || r.requestId === id)
+            ? { ...r, status: action === 'approve' ? 'approved' as const : 'rejected' as const, finalDecisionBy: 'HOD', finalDecisionName: 'HOD' }
+            : r
+        );
+        (mapped as any).total = (old as any).total;
+        (mapped as any).hasMore = (old as any).hasMore;
+        return mapped;
+      });
+
+      return { previousRequests, id };
+    },
+    onError: (err: any, _vars, context) => {
+      if (context?.previousRequests) {
+        queryClient.setQueryData(['requests', displayLimit, tab], context.previousRequests);
+      }
+      console.warn('API reviewRequest error:', err);
+    },
+    onSuccess: (updated) => {
+      if (updated) {
+        queryClient.setQueriesData({ queryKey: ['requests'] }, (old: any) => {
+          if (!Array.isArray(old)) return old;
+          const mapped = old.map((r: AttendanceRequest) =>
+            (r.id === updated.id || r.requestId === updated.id) ? { ...r, ...updated } : r
+          );
+          (mapped as any).total = (old as any).total;
+          (mapped as any).hasMore = (old as any).hasMore;
+          return mapped;
+        });
+      }
       void queryClient.invalidateQueries({ queryKey: ['public-approved-requests-for-attendance'] });
-      void queryClient.invalidateQueries({ queryKey: ['attendanceSubmissions'] });
-      void queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+    onSettled: (_, __, vars) => {
+      const rowId = vars?.id;
+      if (rowId) {
+        setProcessingIds(prev => {
+          const next = new Set(prev);
+          next.delete(rowId);
+          return next;
+        });
+      }
     },
   });
 
@@ -198,7 +241,15 @@ export default function HODAllRequests() {
         </motion.div>
 
         {/* ── Table / Mobile Cards ── */}
-        {filtered.length === 0 ? (
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-orange-50 flex items-center justify-center mb-4">
+              <Loader2 size={22} className="text-orange-500 animate-spin" />
+            </div>
+            <h3 className="text-[16px] font-semibold text-[#111111] mb-1">Loading requests...</h3>
+            <p className="text-[14px] text-[#6B7280] max-w-xs">Fetching latest student attendance requests</p>
+          </div>
+        ) : filtered.length === 0 ? (
           <EmptyState
             title="No requests found"
             description="Try adjusting your filters."
@@ -241,9 +292,10 @@ export default function HODAllRequests() {
                         className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60 transition-colors"
                       >
                         <td className="px-5 py-3 cursor-pointer" onClick={() => navigate(`/hod/request/${req.id}`)}>
-                          <div className="flex items-center gap-2.5">
+                          <div className="flex items-center gap-2">
                             <Avatar name={req.student?.name || 'S'} src={req.student?.avatarUrl} size="sm" role="student" />
                             <span className="text-[13px] font-semibold text-slate-800 truncate max-w-[170px]">{req.student?.name}</span>
+                            <VerifiedActivityBadge student={req.student} />
                           </div>
                         </td>
                         <td className="px-3 py-3 cursor-pointer" onClick={() => navigate(`/hod/request/${req.id}`)}>
@@ -345,20 +397,22 @@ export default function HODAllRequests() {
                           <div className="flex items-center justify-end gap-1.5" onClick={e => e.stopPropagation()}>
                             {req.status !== 'approved' && (
                               <button
+                                disabled={processingIds.has(req.id)}
                                 onClick={() => reviewMutation.mutate({ id: req.id, action: 'approve' })}
-                                className="h-7 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10.5px] rounded-lg flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                                className="h-7 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10.5px] rounded-lg flex items-center gap-1 cursor-pointer transition-colors shadow-2xs disabled:opacity-50"
                                 title="Approve Request"
                               >
-                                <Check size={12} />
+                                {processingIds.has(req.id) ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
                                 <span>Approve</span>
                               </button>
                             )}
                             <button
+                              disabled={processingIds.has(req.id)}
                               onClick={() => reviewMutation.mutate({ id: req.id, action: 'reject' })}
-                              className="h-7 px-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-[10.5px] rounded-lg border border-rose-200 flex items-center gap-1 cursor-pointer transition-colors"
+                              className="h-7 px-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-[10.5px] rounded-lg border border-rose-200 flex items-center gap-1 cursor-pointer transition-colors disabled:opacity-50"
                               title={req.status === 'approved' ? 'Force Reject Approved Request' : 'Reject Request'}
                             >
-                              <X size={12} />
+                              {processingIds.has(req.id) ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />}
                               <span>{req.status === 'approved' ? 'Force Reject' : 'Reject'}</span>
                             </button>
                           </div>
@@ -394,7 +448,10 @@ export default function HODAllRequests() {
                         <div className="flex items-center gap-2.5 min-w-0">
                           <Avatar name={req.student?.name || 'S'} src={req.student?.avatarUrl} size="sm" role="student" />
                           <div className="min-w-0">
-                            <p className="text-[13.5px] font-bold text-slate-800 leading-tight truncate">{req.student?.name}</p>
+                            <div className="flex items-center gap-1.5">
+                              <p className="text-[13.5px] font-bold text-slate-800 leading-tight truncate">{req.student?.name}</p>
+                              <VerifiedActivityBadge student={req.student} />
+                            </div>
                             <p className="text-[11px] font-mono text-slate-400 mt-0.5">{req.student?.rollNumber}</p>
                           </div>
                         </div>
@@ -483,21 +540,23 @@ export default function HODAllRequests() {
                         <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
                           {req.status !== 'approved' && (
                             <button
+                              disabled={processingIds.has(req.id)}
                               onClick={() => reviewMutation.mutate({ id: req.id, action: 'approve' })}
-                              className="h-6 px-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] rounded-md flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                              className="h-6 px-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] rounded-md flex items-center gap-1 cursor-pointer transition-colors shadow-2xs disabled:opacity-50"
                               title="Approve Request"
                             >
-                              <Check size={11} />
+                              {processingIds.has(req.id) ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
                               <span>Approve</span>
                             </button>
                           )}
                           <button
+                            disabled={processingIds.has(req.id)}
                             onClick={() => reviewMutation.mutate({ id: req.id, action: 'reject' })}
-                            className="h-6 px-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-[10px] rounded-md border border-rose-200 flex items-center gap-1 cursor-pointer transition-colors"
+                            className="h-6 px-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-[10px] rounded-md border border-rose-200 flex items-center gap-1 cursor-pointer transition-colors disabled:opacity-50"
                             title={req.status === 'approved' ? 'Force Reject Approved Request' : 'Reject Request'}
                           >
-                            <X size={11} />
-                            <span>{req.status === 'approved' ? 'Reject' : 'Reject'}</span>
+                            {processingIds.has(req.id) ? <Loader2 size={11} className="animate-spin" /> : <X size={11} />}
+                            <span>{req.status === 'approved' ? 'Force Reject' : 'Reject'}</span>
                           </button>
                         </div>
                       </div>
@@ -506,6 +565,25 @@ export default function HODAllRequests() {
                 })}
               </motion.div>
             </div>
+
+            {/* ── Load More Controls ── */}
+            {(requestsList.hasMore || filtered.length < (requestsList.total || 0)) && (
+              <div className="py-3.5 px-4 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between gap-3">
+                <span className="text-[12px] text-slate-400 font-medium">
+                  Showing <span className="font-semibold text-slate-700">{filtered.length}</span> of{' '}
+                  <span className="font-semibold text-slate-700">{requestsList.total || requestsList.length}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setDisplayLimit(prev => prev + 25)}
+                  disabled={isFetching}
+                  className="px-3 py-1.5 bg-white hover:bg-slate-50 active:scale-95 text-slate-600 hover:text-slate-900 border border-slate-200 rounded-lg text-[12px] font-semibold transition-all shadow-2xs cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {isFetching && <Loader2 size={12} className="animate-spin text-slate-400" />}
+                  <span>Load more</span>
+                </button>
+              </div>
+            )}
           </motion.div>
         )}
 

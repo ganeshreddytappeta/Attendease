@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  ClipboardList, Clock, Plus, MoreVertical, User as UserIcon, ArrowRight, Lock
+  ClipboardList, Plus, MoreVertical, ArrowRight
 } from 'lucide-react';
 import { PageWrapper } from '../../components/layout/PageWrapper';
 import { useQuery } from '@tanstack/react-query';
@@ -10,6 +10,7 @@ import { formatDateShort, formatTimeAgo } from '../../lib/utils';
 import { useAuth } from '../../context/AuthContext';
 import srkrEmblem from '../../assets/srkr-emblem.png';
 import { AnnouncementRenderer } from '../../components/announcements/AnnouncementRenderer';
+import { VerifiedActivityBadge } from '../../components/shared/VerifiedActivityBadge';
 
 const card = (extra: object = {}) => ({
   background: '#ffffff',
@@ -54,12 +55,6 @@ export default function StudentHome() {
 
   const recent = allRequests.slice(0, 3);
 
-  const quickActions = [
-    { label: 'New Request', icon: Plus, color: '#F97316', bg: 'rgba(249,115,22,0.09)', to: '/student/new-request' },
-    { label: 'History', icon: Clock, color: '#8B5CF6', bg: 'rgba(139,92,246,0.09)', to: '/student/history' },
-    { label: 'Profile', icon: UserIcon, color: '#3B82F6', bg: 'rgba(59,130,246,0.09)', to: '/student/profile' },
-    { label: 'Change Password', icon: Lock, color: '#EF4444', bg: 'rgba(239,68,68,0.09)', to: '/student/profile', state: { tab: 'Account Settings' } },
-  ];
 
   return (
     <PageWrapper role="student">
@@ -132,6 +127,12 @@ export default function StudentHome() {
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <h2 style={{ fontSize: 18, fontWeight: 800, color: '#000000', margin: 0 }}>{user?.name ?? 'Student'}</h2>
+            <VerifiedActivityBadge
+              student={user}
+              studentId={user?.userId || user?.id}
+              rollNumber={(user as any)?.rollNumber}
+              size="md"
+            />
           </div>
           <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', fontSize: 13, color: '#64748B' }}>
             <span>Roll No: <strong style={{ color: '#000000' }}>{(user as any)?.rollNumber ?? '24B91A0720'}</strong></span>

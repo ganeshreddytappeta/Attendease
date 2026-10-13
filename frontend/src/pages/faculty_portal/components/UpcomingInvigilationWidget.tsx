@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import {
-  CalendarCheck, Clock,
+  CalendarCheck, Clock, ArrowRight,
   AlertCircle, RotateCcw, Loader2, CheckCircle2
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
@@ -33,10 +34,6 @@ function todayIST(): string {
     month: '2-digit',
     day: '2-digit',
   }).format(new Date());
-}
-
-function isDateToday(dateStr: string): boolean {
-  return dateStr === todayIST();
 }
 
 // Exam Type Badge
@@ -282,6 +279,17 @@ export function UpcomingInvigilationWidget() {
             </AnimatePresence>
           </div>
         )}
+
+        <div className="mt-4 pt-3.5 border-t border-slate-100 flex items-center justify-between">
+          <span className="text-[12px] text-slate-400">View semester-wide schedule & duty hours</span>
+          <Link
+            to="/faculty/invigilation"
+            className="text-[12px] font-bold text-orange-600 hover:text-orange-700 flex items-center gap-1 transition-colors"
+          >
+            <span>Full Invigilations Schedule</span>
+            <ArrowRight size={13} />
+          </Link>
+        </div>
 
       </div>
     </motion.div>
