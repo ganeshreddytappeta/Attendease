@@ -27,6 +27,7 @@ const studentNav = [
   { to: '/student/notifications', label: 'Notifications', icon: Bell, hasBadge: true },
   { to: '/student/new-request', label: 'New Request', icon: Plus },
   { to: '/student/history', label: 'History', icon: Clock },
+  { to: '/student/certificates', label: 'Certificates', icon: Award },
   { to: '/student/profile', label: 'Profile', icon: User },
 ];
 const facultyNav = [

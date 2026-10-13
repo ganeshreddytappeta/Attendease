@@ -11,6 +11,7 @@ function formatUserResponse(user: {
   department: string; designation?: string | null; rollNumber?: string | null;
   semester?: number | null; avatarUrl?: string | null; phone?: string | null;
   counselorId?: string | null; year?: string | null; section?: string | null;
+  studentActivities?: any;
 }) {
   return {
     id:          user.userId,

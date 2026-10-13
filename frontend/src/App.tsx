@@ -21,6 +21,7 @@ import StudentRequestDetails from './pages/student/RequestDetails';
 import EditRequest from './pages/student/EditRequest';
 import Profile from './pages/student/Profile';
 import StudentNotifications from './pages/student/Notifications';
+import StudentCertificates from './pages/student/Certificates';
 
 // Pages — faculty
 import FacultyDashboard from './pages/faculty_portal/Dashboard';
@@ -58,6 +59,7 @@ import PermissionsPage from './pages/Permissions';
 import LandingPage from './pages/LandingPage';
 import Developers from './pages/Developers';
 import Recruitment from './pages/Recruitment';
+import CertificateVerifyPage from './pages/CertificateVerifyPage';
 import NotFound from './pages/NotFound';
 
 const queryClient = new QueryClient({
@@ -187,6 +189,10 @@ function AppRoutes() {
         <Route path="/r/:shareToken" element={<ShareResolvePage />} />
         <Route path="/share/:publicId" element={<ShareRedirectPage />} />
 
+        {/* Public Certificate Verification routes */}
+        <Route path="/verify/:token" element={<CertificateVerifyPage />} />
+        <Route path="/verify/certificate/:token" element={<CertificateVerifyPage />} />
+
         {/* Approved Permissions page (all roles & URL aliases) */}
         <Route path="/permissions" element={<PermissionsPage />} />
         <Route path="/permissions/*" element={<PermissionsPage />} />
@@ -214,6 +220,7 @@ function AppRoutes() {
         <Route path="/student/request/:id" element={<ProtectedRoute role="student"><StudentRequestDetails /></ProtectedRoute>} />
         <Route path="/student/profile" element={<ProtectedRoute role="student"><Profile /></ProtectedRoute>} />
         <Route path="/student/notifications" element={<ProtectedRoute role="student"><StudentNotifications /></ProtectedRoute>} />
+        <Route path="/student/certificates" element={<ProtectedRoute role="student"><StudentCertificates /></ProtectedRoute>} />
 
         {/* Faculty (protected) */}
         <Route path="/faculty" element={<ProtectedRoute role="faculty"><FacultyDashboard /></ProtectedRoute>} />

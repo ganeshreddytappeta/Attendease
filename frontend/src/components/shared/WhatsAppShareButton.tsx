@@ -3,16 +3,17 @@ import { Copy, Check } from 'lucide-react';
 import type { AttendanceRequest } from '../../lib/api';
 import * as api from '../../lib/api';
 
+import whatsappLogo from '../../assets/whatsapp-logo.png';
+
 export const WhatsAppIcon: React.FC<{ size?: number; className?: string }> = ({ size = 20, className = '' }) => (
-  <svg
+  <img
+    src={whatsappLogo}
+    alt="WhatsApp"
     width={size}
     height={size}
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    className={className}
-  >
-    <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.312.045-.694.062-2.122-.531-1.825-.758-2.999-2.617-3.09-2.737-.091-.121-.734-.977-.734-1.864 0-.887.466-1.32.632-1.498.166-.178.363-.223.484-.223.121 0 .243.002.348.01.112.008.261-.043.407.311.152.368.517 1.258.562 1.35.045.091.076.197.015.318-.061.121-.091.197-.182.303-.091.106-.192.237-.274.318-.091.091-.186.19-.08.372.106.182.471.777 1.011 1.258.697.621 1.285.813 1.467.904.182.091.288.076.394-.045.106-.121.455-.53.576-.712.121-.182.243-.152.409-.091.167.061 1.061.501 1.243.592.182.091.303.136.348.212.045.076.045.439-.099.844zM12 2C6.477 2 2 6.477 2 12c0 1.891.527 3.659 1.442 5.168L2 22l4.98-1.309A9.956 9.956 0 0 0 12 22c5.523 0 10-4.477 10-10S17.523 2 12 2z" />
-  </svg>
+    className={`inline-block object-contain pointer-events-none select-none shrink-0 ${className}`}
+    style={{ width: size, height: size }}
+  />
 );
 
 interface WhatsAppShareButtonProps {
@@ -119,12 +120,12 @@ export const WhatsAppShareButton: React.FC<WhatsAppShareButtonProps> = ({
           onClick={handleShare}
           disabled={loading}
           title="Share Request on WhatsApp"
-          className={`w-13 h-13 rounded-full bg-orange-500 hover:bg-orange-600 text-white flex items-center justify-center shadow-lg shadow-orange-500/30 active:scale-95 transition-all cursor-pointer ${className}`}
+          className={`w-13 h-13 rounded-full bg-white hover:bg-emerald-50/70 border border-emerald-200/80 flex items-center justify-center shadow-md shadow-[#25D366]/25 active:scale-95 transition-all cursor-pointer ${className}`}
         >
           {loading ? (
-            <span className="w-5 h-5 rounded-full border-2 border-white/40 border-t-white inline-block animate-spin" />
+            <span className="w-5 h-5 rounded-full border-2 border-emerald-500/30 border-t-emerald-600 inline-block animate-spin" />
           ) : (
-            <WhatsAppIcon size={24} className="text-white" />
+            <WhatsAppIcon size={28} />
           )}
         </button>
       </div>
@@ -138,9 +139,9 @@ export const WhatsAppShareButton: React.FC<WhatsAppShareButtonProps> = ({
         onClick={handleShare}
         disabled={loading}
         title="Share on WhatsApp"
-        className={`p-2.5 rounded-full bg-[#25D366]/15 hover:bg-[#25D366] text-[#128C7E] hover:text-white border border-[#25D366]/30 transition-all cursor-pointer ${className}`}
+        className={`p-2.5 rounded-full bg-white hover:bg-emerald-50 border border-emerald-200/80 transition-all cursor-pointer flex items-center justify-center ${className}`}
       >
-        <WhatsAppIcon size={18} />
+        <WhatsAppIcon size={20} />
       </button>
     );
   }
@@ -152,9 +153,9 @@ export const WhatsAppShareButton: React.FC<WhatsAppShareButtonProps> = ({
           type="button"
           onClick={handleShare}
           disabled={loading}
-          className={`px-3.5 py-2 text-xs font-bold rounded-full bg-[#25D366]/15 hover:bg-[#25D366] text-[#128C7E] hover:text-white border border-[#25D366]/30 transition-all cursor-pointer flex items-center gap-2 ${className}`}
+          className={`px-3.5 py-2 text-xs font-bold rounded-full bg-white hover:bg-emerald-50 text-[#128C7E] border border-emerald-200 transition-all cursor-pointer flex items-center gap-2 ${className}`}
         >
-          <WhatsAppIcon size={16} />
+          <WhatsAppIcon size={18} />
           <span>Share on WhatsApp</span>
         </button>
         <button
@@ -177,8 +178,8 @@ export const WhatsAppShareButton: React.FC<WhatsAppShareButtonProps> = ({
         disabled={loading}
         className={`w-full h-12 rounded-full bg-[#25D366] hover:bg-[#20bd5a] text-white text-[14.5px] font-bold transition-all shadow-md shadow-[#25D366]/25 active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2.5 ${className}`}
       >
-        <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center shrink-0">
-          <WhatsAppIcon size={16} />
+        <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center shrink-0 shadow-xs">
+          <WhatsAppIcon size={18} />
         </div>
         <span>Share on WhatsApp</span>
       </button>

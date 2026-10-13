@@ -460,33 +460,34 @@ export default function RequestDetails() {
             />
 
             {request.status !== 'approved' && (
-              <>
-                <button
-                  type="button"
-                  title="Edit Request"
-                  onClick={() => setIsEditOpen(true)}
-                  className="w-13 h-13 rounded-full bg-orange-500 hover:bg-orange-600 text-white flex items-center justify-center shadow-md shadow-orange-500/25 active:scale-95 transition-all cursor-pointer border-none"
-                >
-                  <Pencil size={20} />
-                </button>
-                <button
-                  type="button"
-                  title="Cancel Request"
-                  onClick={async () => {
-                    if (window.confirm('Are you sure you want to cancel and delete this request?')) {
-                      try {
-                        await api.deleteRequest(request.id);
-                        navigate('/student/history');
-                      } catch (err) {
-                        alert('Failed to delete request.');
-                      }
+              <button
+                type="button"
+                title="Edit Request"
+                onClick={() => setIsEditOpen(true)}
+                className="w-13 h-13 rounded-full bg-orange-500 hover:bg-orange-600 text-white flex items-center justify-center shadow-md shadow-orange-500/25 active:scale-95 transition-all cursor-pointer border-none"
+              >
+                <Pencil size={20} />
+              </button>
+            )}
+
+            {request.status === 'pending' && (
+              <button
+                type="button"
+                title="Cancel Request"
+                onClick={async () => {
+                  if (window.confirm('Are you sure you want to cancel and delete this request?')) {
+                    try {
+                      await api.deleteRequest(request.id);
+                      navigate('/student/history');
+                    } catch (err) {
+                      alert('Failed to delete request.');
                     }
-                  }}
-                  className="w-13 h-13 rounded-full bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 flex items-center justify-center active:scale-95 transition-all cursor-pointer"
-                >
-                  <Trash2 size={20} />
-                </button>
-              </>
+                  }
+                }}
+                className="w-13 h-13 rounded-full bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 flex items-center justify-center active:scale-95 transition-all cursor-pointer"
+              >
+                <Trash2 size={20} />
+              </button>
             )}
 
             <button

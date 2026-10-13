@@ -125,6 +125,14 @@ model User {
   studentActivities        StudentActivity[]            @relation("StudentActivities")
   coordinatorAccesses      CoordinatorAccess[]          @relation("FacultyCoordinatorAccess")
   assignedCoordinators     CoordinatorAccess[]          @relation("AdminAssignedCoordinators")
+  assignedActivities       StudentActivity[]            @relation("CoordinatorAssignedActivities")
+
+  // Certificate relations
+  certificateRequests      CertificateRequest[]         @relation("StudentCertificateRequests")
+  requestedCertificates    CertificateRequest[]         @relation("StudentCertificateRequestors")
+  coordinatedCertReqs      CertificateRequest[]         @relation("CoordinatorCertificateActions")
+  issuedCertificates       IssuedCertificate[]          @relation("StudentIssuedCertificates")
+  coordinatedCertificates  IssuedCertificate[]          @relation("CoordinatorIssuedCertificates")
 
   @@index([role])
   @@index([department])
@@ -348,9 +356,13 @@ model StudentActivity {
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
 
-  student             User             @relation("StudentActivities", fields: [studentId], references: [userId], onDelete: Cascade)
+  student              User               @relation("StudentActivities", fields: [studentId], references: [userId], onDelete: Cascade)
+  coordinatorId        String?            // references User.userId (assigned coordinator)
+  assignedCoordinator  User?              @relation("CoordinatorAssignedActivities", fields: [coordinatorId], references: [userId])
+  certificateRequests  CertificateRequest[]
 
   @@index([studentId])
+  @@index([coordinatorId])
   @@index([category])
   @@index([isActive])
   @@index([category, isActive])
@@ -454,6 +466,107 @@ model AnnouncementWidget {
   @@index([type, state])
   @@index([priority])
   @@map("announcement_widgets")
+}
+
+// ─── Certificate Generation ───────────────────────────────────────────────────
+
+enum CertificateRequestStatus {
+  pending    // Awaiting coordinator review
+  approved   // Certificate issued
+  rejected   // Coordinator declined
+  revoked    // Previously issued certificate revoked by coordinator
+}
+
+enum CertificateTenure {
+  completed // Activity has ended; endDate is the actual end date
+  active    // Activity still ongoing; endDate is the application date
+}
+
+/// A student's request for a participation certificate linked to one StudentActivity
+model CertificateRequest {
+  id                  String                    @id @default(cuid())
+  activityId          String                    // references StudentActivity.id
+  studentId           String                    // references User.userId (student)
+  requestedById       String                    // references User.userId (student — same as studentId)
+  coordinatorId       String?                   // references User.userId (coordinator who acts on it)
+
+  tenure              CertificateTenure
+  /// Effective start date copied at request time (YYYY-MM-DD)
+  capturedStartDate   String?
+  /// Effective end date copied at request time (YYYY-MM-DD); equals application date for active tenure
+  capturedEndDate     String?
+
+  status              CertificateRequestStatus  @default(pending)
+  studentRemarks      String?                   // Optional note from student at submission
+  coordinatorRemarks  String?                   // Coordinator note at approval/rejection
+
+  requestDate         String?                   // Asia/Kolkata calendar day (YYYY-MM-DD)
+  requestedAt         DateTime                  @default(now())
+  reviewedAt          DateTime?
+
+  activity            StudentActivity           @relation(fields: [activityId], references: [id], onDelete: Restrict)
+  student             User                      @relation("StudentCertificateRequests",  fields: [studentId],      references: [userId])
+  requestedBy         User                      @relation("StudentCertificateRequestors", fields: [requestedById], references: [userId])
+  coordinator         User?                     @relation("CoordinatorCertificateActions", fields: [coordinatorId], references: [userId])
+  certificate         IssuedCertificate?
+
+  /// Prevents duplicate requests for the same activity on the same IST day at the database level.
+  @@unique([studentId, activityId, requestDate])
+  @@index([activityId])
+  @@index([studentId])
+  @@index([status])
+  @@index([requestedAt(sort: Desc)])
+  @@map("certificate_requests")
+}
+
+/// Immutable certificate snapshot created atomically when a coordinator approves a request.
+/// One IssuedCertificate per approved CertificateRequest; revocation sets revokedAt rather
+/// than deleting the record, preserving the audit trail.
+model IssuedCertificate {
+  id                    String              @id @default(cuid())
+  certificateRequestId  String              @unique  // references CertificateRequest.id
+  activityId            String              // references StudentActivity.id
+  certificateNumber     String              @unique  // human-readable: "CERT-INT-2024-0042"
+
+  // ── Immutable student snapshot ──────────────────────────────────────────────
+  studentId             String              // references User.userId
+  studentName           String
+  studentRollNumber     String?
+  studentDepartment     String
+  studentYear           String?
+  studentSection        String?
+
+  // ── Immutable activity snapshot ─────────────────────────────────────────────
+  category              String
+  titleOrCompany        String
+  roleOrPosition        String?
+  tenure                CertificateTenure
+  effectiveStartDate    String?             // YYYY-MM-DD
+  effectiveEndDate      String?             // YYYY-MM-DD
+
+  // ── Institutional verification block (NOT a digital signature) ──────────────
+  issuedByCoordinatorId   String            // references User.userId
+  issuedByName            String
+  issuedByDesignation     String?
+  issuedByDepartment      String
+  issuedAt                DateTime          @default(now())
+
+  /// A stable, opaque token for the public verification URL (not a crypto signature)
+  verificationToken       String            @unique @default(cuid())
+
+  revokedAt               DateTime?
+  revokedById             String?           // references User.userId
+  revocationReason        String?
+
+  certificateRequest    CertificateRequest  @relation(fields: [certificateRequestId], references: [id], onDelete: Restrict)
+  student               User               @relation("StudentIssuedCertificates",      fields: [studentId],              references: [userId])
+  issuedByCoordinator   User               @relation("CoordinatorIssuedCertificates",  fields: [issuedByCoordinatorId],  references: [userId])
+
+  @@index([activityId])
+  @@index([studentId])
+  @@index([verificationToken])
+  @@index([issuedAt(sort: Desc)])
+  @@map("issued_certificates")
 }
 
 /// Lightweight interaction & frequency tracker per user

@@ -1617,7 +1617,143 @@ export async function trackAnnouncementClick(id: string): Promise<void> {
   } catch {}
 }
 
+// ─── Certificate Generation API ───────────────────────────────────────────────
 
+export type CertificateRequestStatus = 'pending' | 'approved' | 'rejected' | 'revoked';
+export type CertificateTenure = 'completed' | 'active';
 
+export interface IssuedCertificate {
+  id: string;
+  certificateRequestId: string;
+  activityId: string;
+  certificateNumber: string;
+  studentId: string;
+  studentName: string;
+  studentRollNumber?: string | null;
+  studentDepartment: string;
+  studentYear?: string | null;
+  studentSection?: string | null;
+  category: ActivityCategory;
+  titleOrCompany: string;
+  roleOrPosition?: string | null;
+  tenure: CertificateTenure;
+  effectiveStartDate?: string | null;
+  effectiveEndDate?: string | null;
+  issuedByCoordinatorId: string;
+  issuedByName: string;
+  issuedByDesignation?: string | null;
+  issuedByDepartment: string;
+  issuedAt: string;
+  verificationToken: string;
+  revokedAt?: string | null;
+  revokedById?: string | null;
+  revocationReason?: string | null;
+}
 
+export interface CertificateRequest {
+  id: string;
+  activityId: string;
+  studentId: string;
+  requestedById: string;
+  coordinatorId?: string | null;
+  tenure: CertificateTenure;
+  capturedStartDate?: string | null;
+  capturedEndDate?: string | null;
+  status: CertificateRequestStatus;
+  studentRemarks?: string | null;
+  coordinatorRemarks?: string | null;
+  requestedAt: string;
+  reviewedAt?: string | null;
+  activity?: StudentActivity;
+  student?: {
+    id: string;
+    userId: string;
+    name: string;
+    rollNumber?: string | null;
+    department: string;
+    year?: string | null;
+    section?: string | null;
+    avatarUrl?: string | null;
+  };
+  certificate?: IssuedCertificate | null;
+}
 
+export async function submitCertificateRequest(activityId: string, studentRemarks?: string): Promise<{ success: boolean; certRequest: CertificateRequest }> {
+  return apiFetch('/api/certificates/request', {
+    method: 'POST',
+    body: JSON.stringify({ activityId, studentRemarks }),
+  });
+}
+
+export async function getMyCertificateRequests(): Promise<{ success: boolean; requests: CertificateRequest[] }> {
+  return apiFetch('/api/certificates/my-requests');
+}
+
+export async function getCoordinatorCertificateRequests(status: string = 'pending'): Promise<{ success: boolean; requests: CertificateRequest[] }> {
+  return apiFetch(`/api/certificates/coordinator?status=${encodeURIComponent(status)}`);
+}
+
+export async function approveCertificateRequest(
+  id: string,
+  data: { coordinatorRemarks?: string; coordinatorCode?: string }
+): Promise<{ success: boolean; certRequest: CertificateRequest; certificate: IssuedCertificate }> {
+  return apiFetch(`/api/certificates/${encodeURIComponent(id)}/approve`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function rejectCertificateRequest(
+  id: string,
+  data: { coordinatorRemarks?: string; coordinatorCode?: string }
+): Promise<{ success: boolean; certRequest: CertificateRequest }> {
+  return apiFetch(`/api/certificates/${encodeURIComponent(id)}/reject`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function revokeCertificate(
+  id: string,
+  data: { revocationReason?: string; coordinatorCode?: string }
+): Promise<{ success: boolean; message: string }> {
+  return apiFetch(`/api/certificates/${encodeURIComponent(id)}/revoke`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export interface CertificateVerificationData {
+  valid: boolean;
+  status?: 'active' | 'revoked';
+  message?: string;
+  revokedAt?: string;
+  certificateNumber?: string;
+  certificate?: {
+    certificateNumber: string;
+    studentName: string;
+    studentRollNumber?: string | null;
+    studentDepartment: string;
+    studentYear?: string | null;
+    studentSection?: string | null;
+    category: ActivityCategory;
+    titleOrCompany: string;
+    roleOrPosition?: string | null;
+    tenure: CertificateTenure;
+    participationNote?: string | null;
+    effectiveStartDate?: string | null;
+    effectiveEndDate?: string | null;
+    issuedBy: {
+      name: string;
+      designation?: string | null;
+      department: string;
+    };
+    issuedAt: string;
+  };
+}
+
+export async function verifyCertificateByToken(token: string): Promise<CertificateVerificationData> {
+  const base = getApiBase();
+  const res = await fetch(`${base}/api/certificates/verify/${encodeURIComponent(token)}`);
+  return res.json();
+}

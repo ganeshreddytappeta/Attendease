@@ -313,9 +313,12 @@ router.post('/', async (req: Request, res: Response) => {
       return;
     }
 
+    const assignedCoordinatorId = req.user!.role === 'admin' ? (req.body.coordinatorId || null) : req.user!.id;
+
     const newActivity = await prisma.studentActivity.create({
       data: {
         studentId: targetUserId,
+        coordinatorId: assignedCoordinatorId,
         category: category as ActivityCategory,
         titleOrCompany: titleOrCompany.trim(),
         roleOrPosition: roleOrPosition?.trim() || null,
@@ -551,6 +554,8 @@ router.post('/bulk-add', async (req: Request, res: Response) => {
     let skippedCount = 0;
     const addedNames: string[] = [];
 
+    const assignedCoordinatorId = req.user!.role === 'admin' ? (req.body.coordinatorId || null) : req.user!.id;
+
     for (const student of students) {
       const existing = await prisma.studentActivity.findFirst({
         where: {
@@ -569,6 +574,7 @@ router.post('/bulk-add', async (req: Request, res: Response) => {
       await prisma.studentActivity.create({
         data: {
           studentId: student.userId,
+          coordinatorId: assignedCoordinatorId,
           category: category as ActivityCategory,
           titleOrCompany: titleOrCompany.trim(),
           roleOrPosition: roleOrPosition?.trim() || null,
