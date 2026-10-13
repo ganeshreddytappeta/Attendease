@@ -27,6 +27,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as api from '../../lib/api';
 import type { StudentActivity, ActivityCategory, ActivityAuditLog } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
+import {
+  filterStudentActivities,
+  getStudentActivityCompanies,
+  getStudentActivityTypes,
+  STUDENT_ACTIVITY_FILTERS,
+} from '../../config/studentActivityOptions';
 
 interface StudentActivitiesPageProps {
   role?: 'faculty' | 'hod' | 'admin';
@@ -60,6 +66,8 @@ export default function StudentActivitiesPage({ role = 'faculty' }: StudentActiv
   const queryClient = useQueryClient();
 
   const [activeTab, setActiveTab] = useState<ActivityCategory | 'all'>('internship');
+  const [companyFilter, setCompanyFilter] = useState('');
+  const [activityTypeFilter, setActivityTypeFilter] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showAuditLogs, setShowAuditLogs] = useState(false);
@@ -132,6 +140,19 @@ export default function StudentActivitiesPage({ role = 'faculty' }: StudentActiv
     queryKey: ['student-activities', activeTab, search, statusFilter],
     queryFn: () => api.getStudentActivities({ category: activeTab, search, status: statusFilter }),
   });
+  const selectedCategory: ActivityCategory = activeTab === 'all' ? 'internship' : activeTab;
+  const companyOptions = useMemo(
+    () => getStudentActivityCompanies(activeTab),
+    [activeTab],
+  );
+  const activityTypeOptions = useMemo(
+    () => getStudentActivityTypes(selectedCategory, companyFilter),
+    [selectedCategory, companyFilter],
+  );
+  const filteredActivities = useMemo(
+    () => filterStudentActivities(activities, activeTab, companyFilter, activityTypeFilter),
+    [activities, activeTab, companyFilter, activityTypeFilter],
+  );
 
   const { data: rosterStudents = [] } = useQuery({
     queryKey: ['students-roster'],
@@ -357,10 +378,12 @@ export default function StudentActivitiesPage({ role = 'faculty' }: StudentActiv
 
   // Bulk Operations Handlers
   const toggleSelectAll = () => {
-    if (selectedIds.length === activities.length) {
-      setSelectedIds([]);
+    const visibleIds = filteredActivities.map(activity => activity.id);
+    const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selectedIds.includes(id));
+    if (allVisibleSelected) {
+      setSelectedIds(prev => prev.filter(id => !visibleIds.includes(id)));
     } else {
-      setSelectedIds(activities.map(a => a.id));
+      setSelectedIds(prev => [...new Set([...prev, ...visibleIds])]);
     }
   };
 
@@ -516,23 +539,68 @@ export default function StudentActivitiesPage({ role = 'faculty' }: StudentActiv
         </div>
 
         {/* ── Category Dropdown ── */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm w-full md:w-72">
-          <label htmlFor="student-activity-category" className="block mb-2 text-xs font-bold text-slate-600">
-            Category
-          </label>
-          <select
-            id="student-activity-category"
-            value={activeTab}
-            onChange={e => {
-              setActiveTab(e.target.value as ActivityCategory);
-              setSelectedIds([]);
-            }}
-            className="w-full px-3 py-2.5 text-xs font-semibold rounded-xl bg-slate-50 border border-slate-200 text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition"
-          >
-            {(Object.keys(CATEGORY_CONFIG) as ActivityCategory[]).map(catKey => (
-              <option key={catKey} value={catKey}>{CATEGORY_CONFIG[catKey].label}</option>
-            ))}
-          </select>
+        <div className="w-full min-w-0 rounded-2xl bg-white p-4 border border-slate-200/80 shadow-sm">
+          <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="min-w-0">
+              <label htmlFor="student-activity-category" className="block mb-2 text-xs font-bold text-slate-600">
+                Category
+              </label>
+              <select
+                id="student-activity-category"
+                value={activeTab}
+                onChange={e => {
+                  setActiveTab(e.target.value as ActivityCategory);
+                  setCompanyFilter('');
+                  setActivityTypeFilter('');
+                  setSelectedIds([]);
+                }}
+                className="w-full min-h-10 px-3 py-2 text-xs font-semibold rounded-xl bg-slate-50 border border-slate-200 text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition"
+              >
+                {(Object.keys(STUDENT_ACTIVITY_FILTERS) as ActivityCategory[]).map(catKey => (
+                  <option key={catKey} value={catKey}>{STUDENT_ACTIVITY_FILTERS[catKey].label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="min-w-0">
+              <label htmlFor="student-activity-company" className="block mb-2 text-xs font-bold text-slate-600">
+                {STUDENT_ACTIVITY_FILTERS[selectedCategory].companyLabel}
+              </label>
+              <select
+                id="student-activity-company"
+                value={companyFilter}
+                onChange={e => {
+                  setCompanyFilter(e.target.value);
+                  setActivityTypeFilter('');
+                  setSelectedIds([]);
+                }}
+                className="w-full min-h-10 px-3 py-2 text-xs font-semibold rounded-xl bg-slate-50 border border-slate-200 text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition"
+              >
+                <option value="">All Companies</option>
+                {companyOptions.map(company => (
+                  <option key={company} value={company}>{company}</option>
+                ))}
+              </select>
+            </div>
+            <div className="min-w-0">
+              <label htmlFor="student-activity-type" className="block mb-2 text-xs font-bold text-slate-600">
+                Activity Type / Subcategory
+              </label>
+              <select
+                id="student-activity-type"
+                value={activityTypeFilter}
+                onChange={e => {
+                  setActivityTypeFilter(e.target.value);
+                  setSelectedIds([]);
+                }}
+                className="w-full min-h-10 px-3 py-2 text-xs font-semibold rounded-xl bg-slate-50 border border-slate-200 text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition"
+              >
+                <option value="">{activeTab === 'internship' ? 'All Internship Types' : 'All Types'}</option>
+                {activityTypeOptions.map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+            </div>
+          </div>
         </div>
 
         {/* ── Audit Logs Drawer / Panel ── */}
@@ -631,7 +699,7 @@ export default function StudentActivitiesPage({ role = 'faculty' }: StudentActiv
               <div className="w-8 h-8 border-3 border-orange-500 border-t-transparent rounded-full animate-spin" />
               <span className="text-xs font-semibold">Loading student activities...</span>
             </div>
-          ) : activities.length === 0 ? (
+          ) : filteredActivities.length === 0 ? (
             <div className="p-12 text-center text-slate-400 space-y-3">
               <Users size={36} className="mx-auto text-slate-300" />
               <p className="text-sm font-bold text-slate-700">No student activity records found</p>
@@ -654,7 +722,7 @@ export default function StudentActivitiesPage({ role = 'faculty' }: StudentActiv
                     <tr className="bg-slate-50/80 border-b border-slate-200/80 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
                       <th className="w-10 py-3.5 px-3 text-center md:px-4">
                         <button onClick={toggleSelectAll} className="text-slate-400 hover:text-slate-700">
-                          {selectedIds.length === activities.length ? <CheckSquare size={16} className="text-orange-600" /> : <Square size={16} />}
+                          {filteredActivities.length > 0 && filteredActivities.every(activity => selectedIds.includes(activity.id)) ? <CheckSquare size={16} className="text-orange-600" /> : <Square size={16} />}
                         </button>
                       </th>
                       <th className="w-[30%] py-3.5 px-3 md:px-4">Student Identity</th>
@@ -665,7 +733,7 @@ export default function StudentActivitiesPage({ role = 'faculty' }: StudentActiv
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium">
-                    {activities.map((act: StudentActivity) => {
+                    {filteredActivities.map((act: StudentActivity) => {
                       const isSelected = selectedIds.includes(act.id);
                       const config = CATEGORY_CONFIG[act.category] || CATEGORY_CONFIG.internship;
                       const CategoryIcon = config.icon;
@@ -755,7 +823,7 @@ export default function StudentActivitiesPage({ role = 'faculty' }: StudentActiv
               </div>
 
               <div className="md:hidden space-y-3 p-3">
-                {activities.map((act: StudentActivity) => {
+                {filteredActivities.map((act: StudentActivity) => {
                   const isSelected = selectedIds.includes(act.id);
                   const config = CATEGORY_CONFIG[act.category] || CATEGORY_CONFIG.internship;
                   const CategoryIcon = config.icon;
