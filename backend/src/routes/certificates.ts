@@ -17,6 +17,10 @@ import {
   logCertificateAuditAction,
   formatCertificateNumber,
 } from '../services/certificate.service.js';
+import {
+  generateCertificatePdf,
+  getSafeCertificateFilename,
+} from '../services/certificatePdf.service.js';
 
 const router = Router();
 
@@ -746,6 +750,93 @@ router.post('/:id/revoke', async (req: Request, res: Response) => {
     }
     console.error('POST /api/certificates/:id/revoke error:', err);
     res.status(500).json({ error: 'Failed to revoke certificate.' });
+  }
+});
+
+// GET /api/certificates/:id/pdf (and GET /api/v1/certificates/:id/pdf)
+// Secure authenticated PDF download endpoint
+router.get('/:id/pdf', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    if (!id || !id.trim()) {
+      res.status(400).json({ error: 'Certificate identifier is required.' });
+      return;
+    }
+
+    const certId = id.trim();
+    const actor = req.user!;
+
+    // 1. Fetch certificate from immutable snapshot
+    const cert = await prisma.issuedCertificate.findFirst({
+      where: {
+        OR: [
+          { id: certId },
+          { certificateRequestId: certId },
+          { certificateNumber: certId },
+        ],
+      },
+    });
+
+    if (!cert) {
+      res.status(404).json({ error: 'Certificate record not found.' });
+      return;
+    }
+
+    // 2. Authorization enforcement
+    // Students can only download their own certificates
+    if (actor.role === 'student') {
+      const studentIdMatch =
+        cert.studentId.toLowerCase() === actor.id.toLowerCase() ||
+        cert.studentId.toLowerCase() === (actor as any).userId?.toLowerCase();
+
+      if (!studentIdMatch) {
+        res.status(403).json({
+          error: 'Access denied: You are only authorized to download your own certificates.',
+        });
+        return;
+      }
+    } else if (actor.role === 'faculty') {
+      // Coordinator check: must have active coordinator access for this category OR be the issuing coordinator
+      const isIssuer = cert.issuedByCoordinatorId.toLowerCase() === actor.id.toLowerCase();
+      if (!isIssuer) {
+        const hasCategoryAccess = await prisma.coordinatorAccess.findFirst({
+          where: {
+            isActive: true,
+            category: cert.category as ActivityCategory,
+            OR: [
+              { facultyId: actor.id },
+              { faculty: { userId: actor.id } },
+            ],
+          },
+        });
+        if (!hasCategoryAccess) {
+          res.status(403).json({
+            error: 'Access denied: You are not authorized to access certificates for this category.',
+          });
+          return;
+        }
+      }
+    } else if (actor.role !== 'admin') {
+      // Any other unprivileged role
+      res.status(403).json({
+        error: 'Access denied: Insufficient permissions to download certificates.',
+      });
+      return;
+    }
+
+    // 3. Generate PDF using dedicated certificate PDF service with immutable snapshot
+    const pdfBuffer = await generateCertificatePdf(cert);
+    const filename = getSafeCertificateFilename(cert.certificateNumber);
+
+    // 4. Return real PDF with correct response headers
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.setHeader('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('GET /api/certificates/:id/pdf error:', err);
+    res.status(500).json({ error: 'Failed to generate certificate PDF.' });
   }
 });
 

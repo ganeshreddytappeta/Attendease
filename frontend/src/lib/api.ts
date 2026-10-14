@@ -1757,3 +1757,63 @@ export async function verifyCertificateByToken(token: string): Promise<Certifica
   const res = await fetch(`${base}/api/certificates/verify/${encodeURIComponent(token)}`);
   return res.json();
 }
+
+/**
+ * Downloads the official authenticated certificate PDF from the backend
+ * and triggers a safe file download in the browser.
+ */
+export async function downloadCertificatePdf(
+  certificateId: string,
+  certificateNumber?: string
+): Promise<void> {
+  const currentBase = getApiBase();
+  const token = getStoredToken();
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const path = `/api/certificates/${encodeURIComponent(certificateId)}/pdf`;
+  let res: Response | null = null;
+  try {
+    res = await fetch(`${currentBase}${path}`, { headers });
+  } catch {
+    const isLocal =
+      typeof window !== 'undefined' &&
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    const fallbackBases = isLocal
+      ? ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002'].filter(
+          (b) => b !== currentBase
+        )
+      : ['https://attendease-apuw.onrender.com'].filter((b) => b !== currentBase);
+    for (const fb of fallbackBases) {
+      try {
+        const fbRes = await fetch(`${fb}${path}`, { headers });
+        res = fbRes;
+        break;
+      } catch {
+        // try next
+      }
+    }
+  }
+
+  if (!res) {
+    throw new Error('Unable to connect to backend server to download certificate.');
+  }
+
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({ error: 'Failed to download certificate PDF.' }));
+    throw new Error(errBody.error || `Download failed with status ${res.status}`);
+  }
+
+  const blob = await res.blob();
+  const downloadUrl = window.URL.createObjectURL(blob);
+  const safeNumber = (certificateNumber || certificateId).replace(/[^a-zA-Z0-9_-]/g, '_');
+  const filename = `AttendEase-Certificate-${safeNumber}.pdf`;
+
+  const link = document.createElement('a');
+  link.href = downloadUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(downloadUrl);
+}

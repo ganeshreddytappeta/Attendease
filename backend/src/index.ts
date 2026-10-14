@@ -102,6 +102,7 @@ app.use('/api/attendance',        attendanceRoutes);
 app.use('/api/invigilation',       invigilationRoutes);
 app.use('/api/activities',        activitiesRoutes);
 app.use('/api/certificates',      certificateRoutes);
+app.use('/api/v1/certificates',   certificateRoutes);
 app.use('/api/announcements',       announcementRoutes);
 app.use('/api/admin/coordinators', coordinatorRoutes);
 app.use('/api/admin',             adminRouter);

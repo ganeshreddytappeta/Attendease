@@ -17,7 +17,9 @@ import {
   Trophy,
   Info,
   ShieldCheck,
-  Building
+  Building,
+  Download,
+  Loader2
 } from 'lucide-react';
 import { PageWrapper } from '../../components/layout/PageWrapper';
 import { EmptyState } from '../../components/shared/EmptyState';
@@ -46,6 +48,7 @@ export default function StudentCertificates() {
   const [selectedActivity, setSelectedActivity] = useState<StudentActivity | null>(null);
   const [remarks, setRemarks] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [downloadingCertId, setDownloadingCertId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const showToast = (type: 'success' | 'error', text: string) => {
@@ -101,6 +104,18 @@ export default function StudentCertificates() {
     navigator.clipboard.writeText(url);
     setCopiedId(reqId);
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleDownloadPdf = async (certId: string, certNumber: string) => {
+    try {
+      setDownloadingCertId(certId);
+      await api.downloadCertificatePdf(certId, certNumber);
+      showToast('success', 'Official certificate PDF downloaded successfully.');
+    } catch (err: any) {
+      showToast('error', err.message || 'Failed to download certificate PDF.');
+    } finally {
+      setDownloadingCertId(null);
+    }
   };
 
   // Find if an activity already has a pending or approved request
@@ -265,9 +280,23 @@ export default function StudentCertificates() {
                         </div>
 
                         {/* Right Action buttons */}
-                        <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                        <div className="flex items-center gap-2 self-start sm:self-auto shrink-0 flex-wrap sm:flex-nowrap">
                           {isApproved && req.certificate && (
                             <>
+                              <button
+                                onClick={() => handleDownloadPdf(req.certificate!.id, req.certificate!.certificateNumber)}
+                                disabled={downloadingCertId === req.certificate.id}
+                                className="h-8 px-3 rounded-lg bg-teal-700 hover:bg-teal-800 text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-2xs transition disabled:opacity-50"
+                                title="Download official PDF certificate"
+                              >
+                                {downloadingCertId === req.certificate.id ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <Download className="w-3.5 h-3.5" />
+                                )}
+                                <span>{downloadingCertId === req.certificate.id ? 'Downloading...' : 'Download PDF'}</span>
+                              </button>
+
                               <button
                                 onClick={() => handleCopyLink(req.certificate!.verificationToken, req.id)}
                                 className="h-8 px-2.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-medium inline-flex items-center gap-1.5 shadow-2xs"
@@ -281,10 +310,10 @@ export default function StudentCertificates() {
                                 to={`/verify/${req.certificate.verificationToken}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="h-8 px-3 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 text-xs font-semibold inline-flex items-center gap-1.5 shadow-2xs transition"
+                                className="h-8 px-3 rounded-lg bg-slate-900 text-white hover:bg-slate-800 text-xs font-semibold inline-flex items-center gap-1.5 shadow-2xs transition"
                               >
                                 <ShieldCheck className="w-3.5 h-3.5" />
-                                <span>View Certificate</span>
+                                <span>View</span>
                                 <ExternalLink className="w-3 h-3 opacity-70" />
                               </Link>
                             </>
