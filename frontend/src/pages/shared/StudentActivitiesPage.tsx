@@ -22,11 +22,10 @@ import {
   CheckSquare,
   Square,
   UserPlus,
-  ShieldAlert,
-  Clock,
   ExternalLink,
   Calendar,
-  Send
+  User,
+  Mail
 } from 'lucide-react';
 import { PageWrapper } from '../../components/layout/PageWrapper';
 import { EmptyState } from '../../components/shared/EmptyState';
@@ -55,7 +54,7 @@ const CATEGORY_CONFIG: Record<ActivityCategory, { label: string; icon: any; colo
 
 function StudentStatusDot({ status }: { status?: string | null }) {
   const normalized = status?.toLowerCase();
-  const isActive = normalized === 'active';
+  const isActive = !status || normalized === 'active';
 
   if (!isActive) return null;
 
@@ -136,6 +135,9 @@ export default function StudentActivitiesPage({ role = 'faculty' }: StudentActiv
 
   // Single Delete Confirmation Modal
   const [deletingActivity, setDeletingActivity] = useState<StudentActivity | null>(null);
+
+  // Student Profile & Activity Details Modal
+  const [profileModalActivity, setProfileModalActivity] = useState<StudentActivity | null>(null);
 
   // Feedback Toasts
   const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -1049,20 +1051,29 @@ export default function StudentActivitiesPage({ role = 'faculty' }: StudentActiv
 
                           <td className="py-3.5 px-3 md:px-4">
                             <div className="flex min-w-0 items-center gap-3">
-                              <div className="h-9 w-9 shrink-0 rounded-xl border border-slate-200 bg-slate-100 flex items-center justify-center font-black text-slate-700 text-xs">
+                              <button
+                                type="button"
+                                onClick={() => setProfileModalActivity(act)}
+                                title="View Student Profile"
+                                className="h-9 w-9 shrink-0 rounded-xl border border-slate-200 bg-slate-100 flex items-center justify-center font-black text-slate-700 text-xs hover:border-orange-400 hover:ring-2 hover:ring-orange-500/20 active:scale-95 transition cursor-pointer overflow-hidden"
+                              >
                                 {act.student?.avatarUrl ? (
                                   <img src={act.student.avatarUrl} alt="" className="h-full w-full rounded-xl object-cover" />
                                 ) : (
                                   (act.student?.name || 'S').charAt(0)
                                 )}
-                              </div>
+                              </button>
                               <div className="min-w-0 flex-1">
-                                <div className="inline-flex min-w-0 max-w-full items-center gap-1.5 align-middle">
-                                  <p className="min-w-0 break-words text-xs font-extrabold text-slate-900 leading-tight">
+                                <button
+                                  type="button"
+                                  onClick={() => setProfileModalActivity(act)}
+                                  className="inline-flex min-w-0 max-w-full items-center gap-1.5 align-middle text-left group cursor-pointer"
+                                >
+                                  <p className="min-w-0 break-words text-xs font-extrabold text-slate-900 leading-tight group-hover:text-orange-600 transition-colors">
                                     {act.student?.name || 'Student'}
                                   </p>
                                   <StudentStatusDot status={act.status} />
-                                </div>
+                                </button>
                                 <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500 font-mono">
                                   <span>{act.student?.rollNumber || act.studentId}</span>
                                   <span>•</span>
@@ -1102,16 +1113,23 @@ export default function StudentActivitiesPage({ role = 'faculty' }: StudentActiv
                           <td className="py-3.5 px-3 text-center md:px-4">
                             <div className="flex items-center justify-center gap-1.5">
                               <button
+                                onClick={() => setProfileModalActivity(act)}
+                                title="View Student Profile"
+                                className="p-1.5 rounded-lg text-slate-500 hover:text-orange-600 hover:bg-orange-50 border border-transparent hover:border-orange-200 transition cursor-pointer"
+                              >
+                                <User size={14} />
+                              </button>
+                              <button
                                 onClick={() => openEditModal(act)}
                                 title="Edit Record (Requires Coordinator Code)"
-                                className="p-1.5 rounded-lg text-slate-500 hover:text-orange-600 hover:bg-orange-50 border border-transparent hover:border-orange-200 transition"
+                                className="p-1.5 rounded-lg text-slate-500 hover:text-orange-600 hover:bg-orange-50 border border-transparent hover:border-orange-200 transition cursor-pointer"
                               >
                                 <Edit2 size={14} />
                               </button>
                               <button
                                 onClick={() => openDeleteModal(act)}
                                 title="Remove from Activity (Master Student Record Intact)"
-                                className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition"
+                                className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition cursor-pointer"
                               >
                                 <Trash2 size={14} />
                               </button>
@@ -1124,88 +1142,112 @@ export default function StudentActivitiesPage({ role = 'faculty' }: StudentActiv
                 </table>
               </div>
 
-              <div className="md:hidden space-y-3 p-3">
+              <div className="md:hidden space-y-2.5 p-2.5 sm:p-3">
                 {filteredActivities.map((act: StudentActivity) => {
                   const isSelected = selectedIds.includes(act.id);
                   const config = CATEGORY_CONFIG[act.category] || CATEGORY_CONFIG.internship;
                   const CategoryIcon = config.icon;
 
                   return (
-                    <div key={act.id} className={`rounded-2xl border border-slate-200 bg-white p-3 shadow-sm ${isSelected ? 'border-orange-200 bg-orange-50/30' : ''}`}>
-                      <div className="flex items-start gap-2.5">
-                        <button onClick={() => toggleSelectRow(act.id)} className="mt-1 text-slate-400 hover:text-slate-700">
-                          {isSelected ? <CheckSquare size={16} className="text-orange-600" /> : <Square size={16} />}
+                    <div
+                      key={act.id}
+                      className={`rounded-2xl border border-slate-200/90 bg-white p-3 sm:p-3.5 shadow-2xs hover:shadow-xs transition ${
+                        isSelected ? 'border-orange-300 bg-orange-50/25 ring-1 ring-orange-200' : ''
+                      }`}
+                    >
+                      {/* Row 1: Checkbox, Avatar, Student Name & Roll Number, Status Dot, Action Buttons */}
+                      <div className="flex items-center gap-2.5">
+                        {/* Checkbox */}
+                        <button
+                          type="button"
+                          onClick={() => toggleSelectRow(act.id)}
+                          className="text-slate-400 hover:text-slate-700 shrink-0 p-0.5 cursor-pointer"
+                          title={isSelected ? 'Deselect' : 'Select'}
+                        >
+                          {isSelected ? <CheckSquare size={17} className="text-orange-600" /> : <Square size={17} />}
                         </button>
 
-                        <div className="h-10 w-10 shrink-0 rounded-xl border border-slate-200 bg-slate-100 flex items-center justify-center font-black text-slate-700 text-xs">
+                        {/* Circular Avatar */}
+                        <button
+                          type="button"
+                          onClick={() => setProfileModalActivity(act)}
+                          title="View Student Profile"
+                          className="h-10 w-10 shrink-0 rounded-full border border-slate-200/90 bg-slate-100 flex items-center justify-center font-bold text-slate-600 text-xs hover:border-orange-400 hover:ring-2 hover:ring-orange-500/20 active:scale-95 transition cursor-pointer overflow-hidden group shadow-2xs"
+                        >
                           {act.student?.avatarUrl ? (
-                            <img src={act.student.avatarUrl} alt="" className="h-full w-full rounded-xl object-cover" />
+                            <img src={act.student.avatarUrl} alt={act.student.name} className="h-full w-full rounded-full object-cover" />
                           ) : (
-                            (act.student?.name || 'S').charAt(0)
+                            <User size={18} className="text-slate-400" />
                           )}
-                        </div>
+                        </button>
 
+                        {/* Student Name & Roll Number */}
                         <div className="min-w-0 flex-1">
-                          <div className="inline-flex min-w-0 max-w-full items-center gap-1.5 align-middle">
-                            <p className="min-w-0 break-words text-sm font-extrabold text-slate-900 leading-tight">
+                          <button
+                            type="button"
+                            onClick={() => setProfileModalActivity(act)}
+                            className="inline-flex min-w-0 max-w-full items-center gap-1.5 align-middle text-left group cursor-pointer"
+                          >
+                            <p className="min-w-0 break-words text-[13px] sm:text-[13.5px] font-extrabold uppercase tracking-tight text-slate-900 leading-tight group-hover:text-orange-600 transition-colors truncate">
                               {act.student?.name || 'Student'}
                             </p>
                             <StudentStatusDot status={act.status} />
-                          </div>
-                          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500 font-mono">
+                          </button>
+                          <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold text-slate-400 tracking-wide font-mono leading-none">
                             <span>{act.student?.rollNumber || act.studentId}</span>
                             <span>•</span>
-                            <span>{act.student?.department || 'CSD'}</span>
+                            <span>{act.student?.department || 'CSIT'}</span>
                           </div>
                         </div>
 
+                        {/* Action Buttons: Profile, Edit, Delete (neat circular pills matching reference image) */}
                         <div className="flex shrink-0 items-center gap-1.5">
+                          {/* Profile button */}
                           <button
+                            type="button"
+                            onClick={() => setProfileModalActivity(act)}
+                            title="View Profile Details"
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-500 bg-slate-50 border border-slate-200/80 hover:bg-slate-100 hover:text-slate-800 transition active:scale-95 cursor-pointer shadow-2xs"
+                          >
+                            <User size={14} />
+                          </button>
+
+                          {/* Edit button */}
+                          <button
+                            type="button"
                             onClick={() => openEditModal(act)}
                             title="Edit Record"
-                            className="p-2 rounded-lg text-slate-500 hover:text-orange-600 hover:bg-orange-50 border border-transparent hover:border-orange-200 transition"
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-orange-600 bg-orange-50 border border-orange-200/80 hover:bg-orange-100 hover:text-orange-700 transition active:scale-95 cursor-pointer shadow-2xs"
                           >
-                            <Edit2 size={14} />
+                            <Edit2 size={13} />
                           </button>
+
+                          {/* Delete button */}
                           <button
+                            type="button"
                             onClick={() => openDeleteModal(act)}
                             title="Remove"
-                            className="p-2 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition"
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-rose-600 bg-rose-50 border border-rose-200/80 hover:bg-rose-100 hover:text-rose-700 transition active:scale-95 cursor-pointer shadow-2xs"
                           >
-                            <Trash2 size={14} />
+                            <Trash2 size={13} />
                           </button>
                         </div>
                       </div>
 
-                      <div className="mt-3 space-y-2 text-xs">
-                        <div className="flex items-start gap-2">
-                          <span className={`mt-0.5 shrink-0 rounded-lg border p-1.5 ${config.bg} ${config.color} ${config.border}`}>
-                            <CategoryIcon size={12} />
+                      {/* Row 2: Compact Category Icon + Internship Title & Category */}
+                      <div className="mt-2.5 pt-0.5 flex items-center gap-2.5">
+                        <span
+                          className={`w-9 h-9 shrink-0 rounded-full border flex items-center justify-center ${config.bg} ${config.color} ${config.border} shadow-2xs`}
+                        >
+                          <CategoryIcon size={14} />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="break-words text-[12.5px] sm:text-[13px] font-extrabold uppercase tracking-tight text-slate-900 leading-tight">
+                            {act.titleOrCompany}
+                          </p>
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mt-0.5">
+                            {config.label}
                           </span>
-                          <div className="min-w-0 flex-1">
-                            <p className="break-words font-bold text-slate-900">{act.titleOrCompany}</p>
-                            <span className="text-[10.5px] font-bold text-slate-400 uppercase tracking-wide">{config.label}</span>
-                          </div>
-                        </div>
-
-                        <div className="grid gap-1">
-                          <div>
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Role / Mentor</span>
-                            <p className="mt-0.5 break-words text-slate-700 font-semibold">{act.roleOrPosition || '—'}</p>
-                          </div>
-                          {act.mentorOrAchievement && (
-                            <p className="break-words text-[11px] text-slate-500 italic">{act.mentorOrAchievement}</p>
-                          )}
-                          <div>
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Duration</span>
-                            <p className="mt-0.5 text-slate-600 font-mono text-[11px]">
-                              {act.startDate ? (
-                                <span>{act.startDate} {act.endDate ? `to ${act.endDate}` : ''}</span>
-                              ) : (
-                                <span className="text-slate-400 italic">N/A</span>
-                              )}
-                            </p>
-                          </div>
                         </div>
                       </div>
                     </div>
@@ -1702,7 +1744,172 @@ export default function StudentActivitiesPage({ role = 'faculty' }: StudentActiv
         )}
       </AnimatePresence>
 
-      {/* ── 6. Certificate Action Confirmation Modal (Approve, Reject, Revoke) ── */}
+      {/* ── 6. Student Profile & Activity Details Modal ── */}
+      <AnimatePresence>
+        {profileModalActivity && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-5 sm:p-6 border border-slate-200 space-y-4 my-8"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2.5 font-black text-slate-900 text-base">
+                  <div className="p-2 rounded-xl bg-orange-50 text-orange-600 border border-orange-200">
+                    <User size={18} />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-slate-900 text-base leading-tight">Student Profile Details</h3>
+                    <p className="text-[11px] text-slate-400 font-medium">Activity &amp; Internship Overview</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setProfileModalActivity(null)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Student Identity Card */}
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 flex items-start gap-3.5">
+                <div className="h-14 w-14 shrink-0 rounded-2xl border border-slate-200 bg-white flex items-center justify-center font-black text-slate-700 text-lg shadow-2xs overflow-hidden">
+                  {profileModalActivity.student?.avatarUrl ? (
+                    <img
+                      src={profileModalActivity.student.avatarUrl}
+                      alt={profileModalActivity.student.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    (profileModalActivity.student?.name || 'S').charAt(0)
+                  )}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-base font-extrabold text-slate-900 leading-tight truncate">
+                      {profileModalActivity.student?.name || 'Student'}
+                    </h4>
+                    <StudentStatusDot status={profileModalActivity.status} />
+                  </div>
+
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-slate-600 font-mono">
+                    <span className="font-bold text-slate-800">
+                      {profileModalActivity.student?.rollNumber || profileModalActivity.studentId}
+                    </span>
+                    <span>•</span>
+                    <span className="font-semibold text-slate-700">
+                      {profileModalActivity.student?.department || 'CSD'}
+                    </span>
+                    {profileModalActivity.student?.year && (
+                      <>
+                        <span>•</span>
+                        <span>{profileModalActivity.student.year}</span>
+                      </>
+                    )}
+                  </div>
+
+                  {profileModalActivity.student?.email && (
+                    <p className="mt-1.5 text-[11px] text-slate-500 truncate flex items-center gap-1.5 font-medium">
+                      <Mail size={12} className="shrink-0 text-slate-400" />
+                      <span>{profileModalActivity.student.email}</span>
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Activity / Internship Details Card */}
+              <div className="space-y-2.5">
+                <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  <Briefcase size={12} className="text-orange-500" />
+                  <span>Activity &amp; Internship Information</span>
+                </div>
+
+                <div className="p-3.5 rounded-xl border border-slate-200 bg-white space-y-3 shadow-2xs">
+                  <div className="flex items-start gap-2.5">
+                    {(() => {
+                      const cfg = CATEGORY_CONFIG[profileModalActivity.category] || CATEGORY_CONFIG.internship;
+                      const CatIcon = cfg.icon;
+                      return (
+                        <span className={`mt-0.5 shrink-0 rounded-lg border p-1.5 ${cfg.bg} ${cfg.color} ${cfg.border}`}>
+                          <CatIcon size={14} />
+                        </span>
+                      );
+                    })()}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-extrabold text-slate-900 leading-snug">
+                        {profileModalActivity.titleOrCompany}
+                      </p>
+                      <span className="text-[10.5px] font-bold text-slate-400 uppercase tracking-wide">
+                        {CATEGORY_CONFIG[profileModalActivity.category]?.label || profileModalActivity.category}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-slate-100 pt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                        Role / Mentor
+                      </span>
+                      <p className="mt-0.5 font-bold text-slate-800 break-words">
+                        {profileModalActivity.roleOrPosition || '—'}
+                      </p>
+                      {profileModalActivity.mentorOrAchievement && (
+                        <p className="mt-0.5 text-[11px] text-slate-500 italic break-words">
+                          {profileModalActivity.mentorOrAchievement}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                        Duration
+                      </span>
+                      <p className="mt-0.5 font-mono text-slate-700 font-semibold text-[11.5px]">
+                        {profileModalActivity.startDate ? (
+                          <span>
+                            {profileModalActivity.startDate} {profileModalActivity.endDate ? `to ${profileModalActivity.endDate}` : ''}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 italic">N/A</span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setProfileModalActivity(null)}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const act = profileModalActivity;
+                    setProfileModalActivity(null);
+                    openEditModal(act);
+                  }}
+                  className="px-4 py-2 text-xs font-bold text-white bg-orange-500 hover:bg-orange-600 rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Edit2 size={13} />
+                  <span>Edit Details</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ── 7. Certificate Action Confirmation Modal (Approve, Reject, Revoke) ── */}
       <AnimatePresence>
         {certRemarksPrompt.isOpen && certRemarksPrompt.certReq && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">

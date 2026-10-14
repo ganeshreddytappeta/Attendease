@@ -452,59 +452,98 @@ export default function FacultyRequests() {
           transition={{ duration: 0.3, delay: 0.07 }}
           className="mb-4"
         >
-          {/* Search + Department Filter */}
-          <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3">
-            <div className="relative flex-1">
-              <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300" />
-              <input
-                type="text"
-                placeholder="Search by student, reason, or roll no..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 text-[13.5px] bg-white border border-slate-200 rounded-xl outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/12 transition-all shadow-subtle"
-              />
-            </div>
-            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-              <div className="relative flex-1 sm:flex-initial">
-                <SlidersHorizontal size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" />
-                <select
-                  value={department}
-                  onChange={e => setDept(e.target.value)}
-                  className="w-full sm:w-auto h-[38px] pl-8 pr-4 text-[12.5px] bg-white border border-slate-200 rounded-xl outline-none focus:border-orange-500 appearance-none cursor-pointer text-slate-700 min-w-[130px] shadow-subtle font-medium"
-                >
-                  <option value="">All Branches</option>
-                  {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
-                  <option value="CSE">CSE</option>
-                  <option value="IT">IT</option>
-                  <option value="ECE">ECE</option>
-                  <option value="EEE">EEE</option>
-                  <option value="MECH">MECH</option>
-                  <option value="CIVIL">CIVIL</option>
-                </select>
+          <div className="flex flex-col gap-2.5 sm:gap-3">
+            {/* Row 1: Search + Department + Year Filters */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3">
+              <div className="relative flex-1">
+                <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Search by student, reason, or roll no..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="w-full h-[38px] pl-9 pr-4 text-[13px] bg-white border border-slate-200 rounded-xl outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/12 transition-all shadow-subtle"
+                />
               </div>
 
-              <select
-                value={yearFilter}
-                onChange={e => setYearFilter(e.target.value)}
-                className="h-[38px] px-3 text-[12.5px] bg-white border border-slate-200 rounded-xl outline-none focus:border-orange-500 cursor-pointer text-slate-700 shadow-subtle font-medium"
-              >
-                <option value="">All Years</option>
-                <option value="1st Year">1st Year</option>
-                <option value="2nd Year">2nd Year</option>
-                <option value="3rd Year">3rd Year</option>
-                <option value="4th Year">4th Year</option>
-              </select>
+              <div className="flex items-center gap-2 shrink-0">
+                <div className="relative flex-1 sm:flex-initial">
+                  <SlidersHorizontal size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" />
+                  <select
+                    value={department}
+                    onChange={e => setDept(e.target.value)}
+                    className="w-full sm:w-auto h-[38px] pl-8 pr-4 text-[12px] sm:text-[12.5px] bg-white border border-slate-200 rounded-xl outline-none focus:border-orange-500 appearance-none cursor-pointer text-slate-700 min-w-[125px] shadow-subtle font-medium"
+                  >
+                    <option value="">All Branches</option>
+                    {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+                    <option value="CSE">CSE</option>
+                    <option value="IT">IT</option>
+                    <option value="ECE">ECE</option>
+                    <option value="EEE">EEE</option>
+                    <option value="MECH">MECH</option>
+                    <option value="CIVIL">CIVIL</option>
+                  </select>
+                </div>
 
-              <select
-                value={tab}
-                onChange={e => setTab(e.target.value as TabValue)}
-                className="h-[38px] px-3 text-[12.5px] bg-white border border-slate-200 rounded-xl outline-none focus:border-orange-500 cursor-pointer text-slate-700 shadow-subtle font-medium"
-              >
-                <option value="pending">Pending ({summaryData?.stats.pending ?? pendingRequestsList.length})</option>
-                <option value="all">All Statuses ({summaryData?.stats.total ?? (tab === 'all' ? requestsList.length : '…')})</option>
-                <option value="approved">Approved ({summaryData?.stats.approved ?? (tab === 'approved' ? requestsList.length : '…')})</option>
-                <option value="rejected">Rejected ({summaryData?.stats.rejected ?? (tab === 'rejected' ? requestsList.length : '…')})</option>
-              </select>
+                <select
+                  value={yearFilter}
+                  onChange={e => setYearFilter(e.target.value)}
+                  className="h-[38px] px-3 text-[12px] sm:text-[12.5px] bg-white border border-slate-200 rounded-xl outline-none focus:border-orange-500 cursor-pointer text-slate-700 shadow-subtle font-medium flex-1 sm:flex-initial"
+                >
+                  <option value="">All Years</option>
+                  <option value="1st Year">1st Year</option>
+                  <option value="2nd Year">2nd Year</option>
+                  <option value="3rd Year">3rd Year</option>
+                  <option value="4th Year">4th Year</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Row 2: Status Buttons (Pending, Approved, Rejected) directly below All Branches and All Years */}
+            <div className="grid grid-cols-3 gap-2 sm:gap-3 w-full">
+              {[
+                {
+                  key: 'pending' as TabValue,
+                  label: 'Pending',
+                  count: summaryData?.stats.pending ?? pendingRequestsList.length,
+                  activeColor: 'bg-orange-500 text-white border-orange-500 shadow-xs font-bold',
+                },
+                {
+                  key: 'approved' as TabValue,
+                  label: 'Approved',
+                  count: summaryData?.stats.approved ?? (summaryData ? summaryData.stats.approved : (tab === 'approved' ? requestsList.length : 0)),
+                  activeColor: 'bg-emerald-600 text-white border-emerald-600 shadow-xs font-bold',
+                },
+                {
+                  key: 'rejected' as TabValue,
+                  label: 'Rejected',
+                  count: summaryData?.stats.rejected ?? (summaryData ? summaryData.stats.rejected : (tab === 'rejected' ? requestsList.length : 0)),
+                  activeColor: 'bg-rose-600 text-white border-rose-600 shadow-xs font-bold',
+                },
+              ].map(btn => {
+                const isSelected = tab === btn.key;
+                return (
+                  <button
+                    key={btn.key}
+                    type="button"
+                    onClick={() => setTab(btn.key)}
+                    className={`h-[38px] px-3 sm:px-4 rounded-xl text-[12px] sm:text-[12.5px] border transition-all flex items-center justify-center gap-1.5 cursor-pointer w-full select-none ${
+                      isSelected
+                        ? btn.activeColor
+                        : 'bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 border-slate-200 shadow-2xs font-semibold'
+                    }`}
+                  >
+                    <span>{btn.label}</span>
+                    <span
+                      className={`text-[11.5px] font-bold ${
+                        isSelected ? 'text-white/90' : 'text-slate-400'
+                      }`}
+                    >
+                      ({btn.count})
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </motion.div>
