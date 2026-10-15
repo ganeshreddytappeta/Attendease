@@ -253,7 +253,21 @@ const REASON_LABELS: Record<RequestReason, string> = {
 
 // Shared include for all request queries including actions audit trail
 const REQUEST_INCLUDE = {
-  student:        { include: { studentActivities: { where: { isActive: true } } } },
+  student: {
+    include: {
+      studentActivities: {
+        where: { isActive: true },
+        select: {
+          id: true,
+          category: true,
+          titleOrCompany: true,
+          roleOrPosition: true,
+          status: true,
+          isActive: true,
+        },
+      },
+    },
+  },
   primaryFaculty: true,
   faculties:      { include: { faculty: true } },
   actions:        { include: { performedBy: true }, orderBy: { performedAt: 'asc' as const } },
@@ -262,7 +276,21 @@ const REQUEST_INCLUDE = {
 
 // Lightweight include for table/list views (omits heavy audit logs actions)
 const REQUEST_LIST_INCLUDE = {
-  student:        { include: { studentActivities: { where: { isActive: true } } } },
+  student: {
+    include: {
+      studentActivities: {
+        where: { isActive: true },
+        select: {
+          id: true,
+          category: true,
+          titleOrCompany: true,
+          roleOrPosition: true,
+          status: true,
+          isActive: true,
+        },
+      },
+    },
+  },
   primaryFaculty: true,
   faculties:      { include: { faculty: true } },
   shareLinks:     { where: { isActive: true }, orderBy: { createdAt: 'desc' as const }, take: 1 },

@@ -534,6 +534,20 @@ router.get('/me', verifyToken, async (req: Request, res: Response) => {
       include: {
         studentActivities: {
           where: { isActive: true },
+          select: {
+            id: true,
+            studentId: true,
+            category: true,
+            titleOrCompany: true,
+            roleOrPosition: true,
+            mentorOrAchievement: true,
+            startDate: true,
+            endDate: true,
+            status: true,
+            isActive: true,
+            createdAt: true,
+            updatedAt: true,
+          },
         },
       },
     });

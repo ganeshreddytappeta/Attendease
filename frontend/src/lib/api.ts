@@ -5,16 +5,36 @@
  */
 
 export const getApiBase = (): string => {
-  // VITE_API_URL always takes priority (covers localhost dev with custom port)
+  // 1. Explicit VITE_API_URL takes priority (covers custom backend or deployed environments)
   const envUrl = (import.meta.env['VITE_API_URL'] || '').trim();
-  if (envUrl) return envUrl.replace(/\/+$/, '');
+  if (envUrl) {
+    // If VITE_API_URL points to the frontend dev server port (e.g. 5173),
+    // route through Vite's dev proxy ('') instead of self-calling Vite
+    try {
+      if (typeof window !== 'undefined') {
+        const parsed = new URL(envUrl);
+        if (parsed.port === window.location.port && parsed.hostname === window.location.hostname) {
+          return '';
+        }
+      }
+    } catch {
+      // not a full URL, continue
+    }
+    return envUrl.replace(/\/+$/, '');
+  }
 
-  // If running in browser on localhost / 127.0.0.1 with no env override, target local backend
+  // 2. In Vite development mode, prefer relative URL ('') so Vite's proxy forwards /api to backend (port 3000).
+  // This works identically on localhost, LAN IPs (10.x, 192.168.x), and mobile devices over Wi-Fi without CSP errors.
+  if (import.meta.env.DEV) {
+    return '';
+  }
+
+  // 3. If running in browser on localhost / 127.0.0.1 with no env override (e.g. preview mode), target local backend
   if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
     return 'http://localhost:3000';
   }
 
-  // Production fallback (Render)
+  // 4. Production fallback (Render)
   return 'https://attendease-apuw.onrender.com';
 };
 
@@ -195,10 +215,17 @@ async function apiFetch<T>(
   try {
     res = await fetch(`${currentBase}${path}`, reqInit);
   } catch {
-    const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    const isLocal =
+      typeof window !== 'undefined' &&
+      (window.location.hostname === 'localhost' ||
+        window.location.hostname === '127.0.0.1' ||
+        /^(10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)$/.test(window.location.hostname));
+    const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
     const fallbackBases = isLocal
-      ? ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002'].filter(b => b !== currentBase)
-      : ['https://attendease-apuw.onrender.com'].filter(b => b !== currentBase);
+      ? ['', 'http://localhost:3000', `http://${host}:3000`, 'http://localhost:3001'].filter(
+          (b) => b !== currentBase
+        )
+      : ['https://attendease-apuw.onrender.com'].filter((b) => b !== currentBase);
     for (const fb of fallbackBases) {
       try {
         const fbRes = await fetch(`${fb}${path}`, reqInit);
@@ -1778,9 +1805,12 @@ export async function downloadCertificatePdf(
   } catch {
     const isLocal =
       typeof window !== 'undefined' &&
-      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+      (window.location.hostname === 'localhost' ||
+        window.location.hostname === '127.0.0.1' ||
+        /^(10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)$/.test(window.location.hostname));
+    const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
     const fallbackBases = isLocal
-      ? ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002'].filter(
+      ? ['', 'http://localhost:3000', `http://${host}:3000`, 'http://localhost:3001'].filter(
           (b) => b !== currentBase
         )
       : ['https://attendease-apuw.onrender.com'].filter((b) => b !== currentBase);
