@@ -78,29 +78,29 @@ export function normalizeStudentSection(student: api.AuthUser): string {
 
   // 2. Direct section string matches
   if (/CSIT[\s-_]*B\b|^B$|SECTION[\s-_]*B/i.test(sec)) {
-    return 'CSIT B';
+    return 'CSIT-B';
   }
   if (/CSIT[\s-_]*A\b|^A$|SECTION[\s-_]*A/i.test(sec)) {
-    return 'CSIT A';
+    return 'CSIT-A';
   }
 
   // 3. Roll number pattern for CSIT / general students
   if (roll.includes('95A') || roll.includes('LE')) {
-    return 'CSIT B';
+    return 'CSIT-B';
   }
 
   const suffix = extractRollSuffix(roll);
   if (/^[A-D]\d$/i.test(suffix)) {
-    return 'CSIT B';
+    return 'CSIT-B';
   }
 
   const num = parseInt(suffix, 10);
   if (!isNaN(num)) {
-    if (num > 72) return 'CSIT B';
-    if (num >= 1 && num <= 72) return 'CSIT A';
+    if (num > 72) return 'CSIT-B';
+    if (num >= 1 && num <= 72) return 'CSIT-A';
   }
 
-  return 'CSIT A';
+  return 'CSIT-A';
 }
 
 export default function AdminCounseling() {
@@ -108,7 +108,7 @@ export default function AdminCounseling() {
   const [selectedFacultyId, setSelectedFacultyId] = useState('');
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [selectedYear, setSelectedYear] = useState('3rd Year');
-  const [selectedSection, setSelectedSection] = useState<'CSIT A' | 'CSIT B' | 'CSD'>('CSIT A');
+  const [selectedSection, setSelectedSection] = useState<'CSIT-A' | 'CSIT-B' | 'CSD'>('CSIT-A');
   const [searchFaculty, setSearchFaculty] = useState('');
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -534,21 +534,25 @@ export default function AdminCounseling() {
                       <Building2 size={13} className="text-orange-500" />
                       Section:
                     </span>
-                    {(['CSD', 'CSIT A', 'CSIT B'] as const).map(sec => (
+                    {([
+                      { id: 'CSD', label: 'CSD' },
+                      { id: 'CSIT-A', label: 'CSIT - Sec A' },
+                      { id: 'CSIT-B', label: 'CSIT - Sec B' },
+                    ] as const).map(sec => (
                       <button
-                        key={sec}
+                        key={sec.id}
                         type="button"
                         onClick={() => {
-                          setSelectedSection(sec);
+                          setSelectedSection(sec.id);
                           setSelectedStudentIds([]);
                         }}
                         className={`px-3 py-1 font-bold rounded-lg cursor-pointer shrink-0 transition-all ${
-                          selectedSection === sec
+                          selectedSection === sec.id
                             ? 'bg-slate-900 text-white shadow-2xs'
                             : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
                         }`}
                       >
-                        {sec}
+                        {sec.label}
                       </button>
                     ))}
                   </div>

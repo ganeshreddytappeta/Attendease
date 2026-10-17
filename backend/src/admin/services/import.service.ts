@@ -10,6 +10,7 @@
 import ExcelJS from 'exceljs';
 import { prisma } from '../../db/prisma.js';
 import { mapRowToFields, validateImportRow } from '../validators/import.validator.js';
+import { toCanonicalSection } from '../../constants/canonicalSections.js';
 import type { ImportReport, ImportRowError, RawExcelRow } from '../types/import.types.js';
 
 function toUserId(rollNumber: string): string {
@@ -169,6 +170,11 @@ export async function importStudentsFromBuffer(buffer: Buffer): Promise<ImportRe
     const role = (s.role as 'student' | 'faculty' | 'hod' | 'admin') || 'student';
     const password = role === 'student' ? roll : '1234';
 
+    // Standardize section to canonical ID ('CSIT-A' | 'CSIT-B' | 'CSD') for student accounts
+    const canonicalSec = role === 'student'
+      ? (toCanonicalSection(s.department, s.section) || (s.department?.includes('CSD') ? 'CSD' : 'CSIT-A'))
+      : (s.section || undefined);
+
     validUsers.push({
       userId: toUserId(roll),
       name: s.name,
@@ -177,7 +183,7 @@ export async function importStudentsFromBuffer(buffer: Buffer): Promise<ImportRe
       department: s.department,
       rollNumber: roll,
       year: s.year || (role === 'student' ? '3rd Year' : undefined),
-      section: s.section || (role === 'student' ? 'A' : undefined),
+      section: canonicalSec,
       semester: s.semester || (role === 'student' ? 6 : undefined),
       password: password,
       avatarUrl: s.avatarUrl || (role === 'student' ? `https://srkrexams.in/SRKR/photo/${roll}.jpg` : undefined),

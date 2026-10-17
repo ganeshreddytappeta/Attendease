@@ -452,7 +452,19 @@ export default function AdminUsers() {
     setFormRoll(user.rollNumber || '');
     setFormSem(user.semester || 6);
     setFormYear(user.year || '3rd Year');
-    setFormSection(user.section || 'CSIT-A');
+
+    // Canonical section mapping for select dropdown
+    const rawSec = (user.section || '').trim().toUpperCase();
+    let initialSec = 'CSIT-A';
+    if (rawSec.includes('CSD') || user.department?.includes('CSD')) {
+      initialSec = 'CSD';
+    } else if (rawSec === 'B' || rawSec.endsWith('B') || rawSec.includes('CSIT-B')) {
+      initialSec = 'CSIT-B';
+    } else {
+      initialSec = 'CSIT-A';
+    }
+    setFormSection(initialSec);
+
     setFormAvatar(user.avatarUrl || '');
     setFormCounselorId(user.counselorId || '');
     setFormError('');
@@ -1069,7 +1081,14 @@ export default function AdminUsers() {
                 <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Branch / Department</label>
                 <select
                   value={formDept}
-                  onChange={e => setFormDept(e.target.value)}
+                  onChange={e => {
+                    const newDept = e.target.value;
+                    setFormDept(newDept);
+                    if (formRole === 'student') {
+                      if (newDept === 'CSD') setFormSection('CSD');
+                      else if (formSection === 'CSD') setFormSection('CSIT-A');
+                    }
+                  }}
                   className="w-full h-[40px] px-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-orange-500 font-medium text-slate-700 text-[13px]"
                 >
                   <option value="CSD">CSD</option>
