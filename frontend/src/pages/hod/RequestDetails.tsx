@@ -418,7 +418,18 @@ export default function HODRequestDetails() {
 
             {/* Small Action Buttons */}
             <div className="flex items-center gap-2 shrink-0">
-              {currentStatus !== 'approved' && (
+              {currentStatus === 'approved' ? (
+                <button
+                  type="button"
+                  disabled={reviewMutation.isPending}
+                  onClick={openApproveModal}
+                  className="h-8 px-3 rounded-lg text-[11.5px] font-semibold flex items-center gap-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 transition-all cursor-pointer shadow-2xs disabled:opacity-50"
+                  title="Change or interchange approved permission periods"
+                >
+                  <Clock size={13} />
+                  <span>Edit Periods</span>
+                </button>
+              ) : (
                 <button
                   type="button"
                   disabled={reviewMutation.isPending}
@@ -462,7 +473,7 @@ export default function HODRequestDetails() {
         onClose={() => { setConfirmModal(null); setRejectionReason(''); }}
         title={
           confirmModal === 'approve'
-            ? currentStatus === 'pending' ? 'Approve Request' : 'Force Approve Request'
+            ? currentStatus === 'approved' ? 'Edit Permission Periods' : currentStatus === 'pending' ? 'Approve Request' : 'Force Approve Request'
             : currentStatus === 'pending' ? 'Confirm Rejection' : 'Force Reject Request'
         }
       >
@@ -502,46 +513,20 @@ export default function HODRequestDetails() {
             {/* 8 Perfectly Round Period Circles */}
             <div className="flex items-center justify-between gap-1.5 py-1 px-0.5">
               {['1', '2', '3', '4', '5', '6', '7', '8'].map(p => {
-                const isApplied = appliedPeriodsList.includes(p);
                 const isChecked = selectedPeriods.includes(p);
-
-                if (!isApplied) {
-                  return (
-                    <div
-                      key={p}
-                      style={{
-                        width: '28px',
-                        height: '28px',
-                        minWidth: '28px',
-                        minHeight: '28px',
-                        maxWidth: '28px',
-                        maxHeight: '28px',
-                        borderRadius: '50%',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        padding: 0,
-                        lineHeight: 1,
-                      }}
-                      className="font-semibold text-[11.5px] border border-dashed border-slate-200 bg-slate-100 text-slate-300 cursor-not-allowed select-none"
-                      title={`Period ${p} (Not requested by student)`}
-                    >
-                      {p}
-                    </div>
-                  );
-                }
+                const isCurrent = appliedPeriodsList.includes(p);
 
                 return (
                   <button
                     key={p}
                     type="button"
                     style={{
-                      width: '28px',
-                      height: '28px',
-                      minWidth: '28px',
-                      minHeight: '28px',
-                      maxWidth: '28px',
-                      maxHeight: '28px',
+                      width: '32px',
+                      height: '32px',
+                      minWidth: '32px',
+                      minHeight: '32px',
+                      maxWidth: '32px',
+                      maxHeight: '32px',
                       borderRadius: '50%',
                       display: 'inline-flex',
                       alignItems: 'center',
@@ -559,9 +544,11 @@ export default function HODRequestDetails() {
                     className={`font-bold text-[12px] transition-all cursor-pointer ${
                       isChecked
                         ? 'bg-orange-500 text-white shadow-xs ring-2 ring-orange-400/30'
-                        : 'bg-white text-slate-700 border border-slate-300 hover:border-slate-400 hover:bg-slate-50'
+                        : isCurrent
+                          ? 'bg-white text-orange-700 border-2 border-orange-200 hover:border-orange-400 hover:bg-orange-50/50'
+                          : 'bg-white text-slate-700 border border-slate-300 hover:border-slate-400 hover:bg-slate-50'
                     }`}
-                    title={`Period ${p}`}
+                    title={isCurrent ? `Period ${p} (Current/Requested)` : `Period ${p}`}
                   >
                     {p}
                   </button>
@@ -572,14 +559,12 @@ export default function HODRequestDetails() {
             {/* Helper text */}
             <p className="text-[11.5px] text-slate-500 mt-2">
               {selectedPeriods.length === 0 ? (
-                <span className="text-rose-600 font-semibold">⚠️ Select at least 1 period to approve.</span>
-              ) : selectedPeriods.length === appliedPeriodsList.length ? (
-                appliedPeriodsList.length === 8
-                  ? '✓ Approving All 8 Periods (Full Day).'
-                  : `✓ Approving all ${appliedPeriodsList.length} requested period(s) (${appliedPeriodsList.join(', ')}).`
+                <span className="text-rose-600 font-semibold">⚠️ Select at least 1 period to grant.</span>
+              ) : selectedPeriods.length === 8 ? (
+                '✓ Granting All 8 Periods (Full Day).'
               ) : (
                 <span>
-                  ✓ Partial Approval: Approving <strong>Period(s) {selectedPeriods.join(', ')}</strong> of {appliedPeriodsList.length} requested.
+                  ✓ Granting <strong>Period(s) {selectedPeriods.join(', ')}</strong> ({selectedPeriods.length} period{selectedPeriods.length > 1 ? 's' : ''}).
                 </span>
               )}
             </p>
@@ -624,9 +609,9 @@ export default function HODRequestDetails() {
             {reviewMutation.isPending
               ? 'Processing...'
               : confirmModal === 'approve'
-              ? selectedPeriods.length === appliedPeriodsList.length
-                ? appliedPeriodsList.length === 8 ? 'Approve Full Day' : `Approve All (${selectedPeriods.length})`
-                : `Approve (${selectedPeriods.length})`
+              ? currentStatus === 'approved'
+                ? `Update Periods (${selectedPeriods.length})`
+                : selectedPeriods.length === 8 ? 'Approve Full Day' : `Approve (${selectedPeriods.length})`
               : 'Reject Request'}
           </button>
         </div>

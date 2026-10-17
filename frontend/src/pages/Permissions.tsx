@@ -488,20 +488,26 @@ const PermissionGrid = React.memo(({
     return Array.from(permissionMap.values()).filter(isLongPermission).length;
   }, [permissionMap]);
 
-  // Combine database submission records with in-memory overrides (when no submission exists)
-  const combinedAttendance = useMemo(() => {
+  const { presentCount, absentCount } = useMemo(() => {
     if (!hasSelectedPeriods) {
-      return {};
+      return { presentCount: 0, absentCount: 0 };
     }
-    const map: Record<string, 'present' | 'absent'> = {};
-    Object.entries(submissionRecordsMap).forEach(([k, v]) => {
-      map[k] = v.status;
-    });
-    return { ...map, ...markedAttendance };
-  }, [submissionRecordsMap, markedAttendance, hasSelectedPeriods]);
+    let present = 0;
+    let absent = 0;
 
-  const presentCount = useMemo(() => Object.values(combinedAttendance).filter(v => v === 'present').length, [combinedAttendance]);
-  const absentCount = useMemo(() => Object.values(combinedAttendance).filter(v => v === 'absent').length, [combinedAttendance]);
+    rollNumbers.forEach(numStr => {
+      // Preserve yellow permission slips
+      if (permissionMap.has(numStr)) return;
+
+      const dbRecord = submissionRecordsMap[numStr];
+      const status = dbRecord ? dbRecord.status : markedAttendance[numStr];
+
+      if (status === 'present') present++;
+      else if (status === 'absent') absent++;
+    });
+
+    return { presentCount: present, absentCount: absent };
+  }, [hasSelectedPeriods, rollNumbers, permissionMap, submissionRecordsMap, markedAttendance]);
 
   return (
     <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
