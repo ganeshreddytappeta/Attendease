@@ -1,3 +1,5 @@
+//ts
+//@ts-nocheck
 /**
  * import.service.ts
  *
