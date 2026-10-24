@@ -1,0 +1,1382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AttendEase | Attendance History Preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary-orange: #F28C38;
+      --orange-hover: #E57A24;
+      --primary-navy: #0F172A;
+      --text-dark: #1E293B;
+      --text-muted: #64748B;
+      --text-subtle: #94A3B8;
+      --bg-light: #F3F5F8;
+      --card-bg: #FFFFFF;
+      --border-color: #E2E8F0;
+      --line-soft: #F1F5F9;
+
+      /* Pastel KPI fills */
+      --kpi-total-bg: #EEF2F6;
+      --kpi-total-border: #E2E8F0;
+      --kpi-total-text: #475569;
+
+      --kpi-approved-bg: #E6F9F0;
+      --kpi-approved-border: #BBF7D0;
+      --kpi-approved-text: #065F46;
+      --kpi-approved-num: #047857;
+
+      --kpi-pending-bg: #FEF9C3;
+      --kpi-pending-border: #FDE68A;
+      --kpi-pending-text: #92400E;
+      --kpi-pending-num: #B45309;
+
+      --kpi-rejected-bg: #FFE4E6;
+      --kpi-rejected-border: #FECACA;
+      --kpi-rejected-text: #991B1B;
+      --kpi-rejected-num: #B91C1C;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg-light);
+      color: var(--text-dark);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Topbar ── */
+    .topbar {
+      height: 64px;
+      background: #FFFFFF;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 18px;
+      font-weight: 800;
+      color: #0F172A;
+      text-decoration: none;
+    }
+    .brand-logo {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #FFF7ED;
+      border: 1.5px solid #FDBA74;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--primary-orange);
+      font-weight: 800;
+      font-size: 18px;
+    }
+    .brand-tag {
+      font-size: 11px;
+      font-weight: 600;
+      color: #94A3B8;
+      display: block;
+      margin-top: -2px;
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .top-btn {
+      height: 36px;
+      padding: 0 14px;
+      border-radius: 9px;
+      font-size: 13px;
+      font-weight: 600;
+      border: 1px solid var(--border-color);
+      background: #FFFFFF;
+      color: #475569;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .top-btn:hover {
+      background: #F8FAFC;
+      border-color: #CBD5E1;
+      color: #1E293B;
+    }
+    .top-btn.orange {
+      border-color: #FED7AA;
+      color: var(--primary-orange);
+      background: #FFF7ED;
+    }
+    .top-btn.orange:hover {
+      background: #FFEDD5;
+    }
+
+    .user-profile {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 4px 10px;
+      border-radius: 10px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 700;
+      color: #1E293B;
+      transition: all 0.15s ease;
+    }
+    .user-profile:hover {
+      background: #F8FAFC;
+      border-color: var(--border-color);
+    }
+    .user-avatar {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: #EA580C;
+      color: #FFFFFF;
+      font-size: 11.5px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ── Layout ── */
+    .app-layout {
+      display: flex;
+      min-height: calc(100vh - 64px);
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 240px;
+      background: #FFFFFF;
+      border-right: 1px solid var(--border-color);
+      padding: 24px 14px;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+    .nav-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      list-style: none;
+    }
+    .nav-item a {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #64748B;
+      text-decoration: none;
+      transition: all 0.15s ease;
+    }
+    .nav-item a:hover {
+      background: #F8FAFC;
+      color: #1E293B;
+    }
+    .nav-item.active a {
+      background: #FFF7ED;
+      color: var(--primary-orange);
+      font-weight: 700;
+      box-shadow: 0 1px 3px rgba(242, 140, 56, 0.08);
+    }
+    .nav-item.new-req a {
+      color: var(--primary-orange);
+      background: #FFFBF7;
+      border: 1px dashed #FDBA74;
+    }
+    .nav-item.new-req a:hover {
+      background: #FFF7ED;
+    }
+    .nav-icon {
+      font-size: 16px;
+      display: inline-flex;
+    }
+
+    .college-seal-card {
+      margin-top: auto;
+      padding: 14px;
+      background: #FFF7ED;
+      border: 1px solid #FFEDD5;
+      border-radius: 12px;
+      text-align: center;
+      font-size: 11px;
+      color: #7C2D12;
+    }
+    .college-seal-card strong {
+      display: block;
+      font-size: 12px;
+      color: #9A3412;
+      margin-bottom: 2px;
+    }
+
+    /* ── Main Content Area ── */
+    .main-viewport {
+      flex: 1;
+      padding: 28px 36px;
+      max-width: 1300px;
+    }
+
+    /* ── Page Header ── */
+    .history-page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .title-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .main-title {
+      font-size: 26px;
+      font-weight: 800;
+      color: #0F172A;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      letter-spacing: -0.02em;
+    }
+    .total-badge {
+      font-size: 12.5px;
+      font-weight: 700;
+      background: #E2E8F0;
+      color: #475569;
+      padding: 3px 11px;
+      border-radius: 999px;
+      letter-spacing: normal;
+    }
+    .main-subtitle {
+      font-size: 13.5px;
+      color: var(--text-muted);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .icon-action-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      border: 1.5px solid var(--border-color);
+      background: #FFFFFF;
+      color: #475569;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    }
+    .icon-action-btn:hover {
+      border-color: #CBD5E1;
+      color: var(--primary-orange);
+      background: #FFF7ED;
+      transform: translateY(-1px);
+    }
+    .icon-action-btn.spinning svg {
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .export-btn {
+      height: 40px;
+      padding: 0 16px;
+      border-radius: 10px;
+      border: 1.5px solid var(--border-color);
+      background: #FFFFFF;
+      color: #334155;
+      font-size: 13.5px;
+      font-weight: 650;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    }
+    .export-btn:hover {
+      border-color: #10B981;
+      background: #F0FDF4;
+      color: #065F46;
+      transform: translateY(-1px);
+    }
+    .excel-icon {
+      color: #10B981;
+      font-size: 16px;
+    }
+
+    .new-request-btn {
+      height: 40px;
+      padding: 0 18px;
+      border-radius: 10px;
+      border: none;
+      background: linear-gradient(135deg, #F28C38 0%, #EA580C 100%);
+      color: #FFFFFF;
+      font-size: 13.5px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(242, 140, 56, 0.35);
+      transition: all 0.18s ease;
+    }
+    .new-request-btn:hover {
+      opacity: 0.94;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(242, 140, 56, 0.45);
+    }
+
+    /* ── 4 KPI Summary Cards (Pastel Fills from Case Study) ── */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .kpi-card {
+      border-radius: 16px;
+      padding: 18px 20px;
+      border: 1px solid transparent;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 110px;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .kpi-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.04);
+    }
+    .kpi-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .kpi-label {
+      font-size: 11.5px;
+      font-weight: 750;
+      letter-spacing: 0.05em;
+      color: #64748B;
+    }
+    .kpi-icon-wrap {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .kpi-bottom {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .kpi-value {
+      font-size: 32px;
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: -0.03em;
+    }
+    .kpi-pill {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+
+    /* Card 1: Total */
+    .total-card {
+      background: var(--kpi-total-bg);
+      border-color: var(--kpi-total-border);
+    }
+    .total-icon {
+      background: rgba(100, 116, 139, 0.12);
+      color: #475569;
+    }
+    .total-value {
+      color: #0F172A;
+    }
+    .total-pill {
+      background: #E2E8F0;
+      color: #475569;
+    }
+
+    /* Card 2: Approved */
+    .approved-card {
+      background: var(--kpi-approved-bg);
+      border-color: var(--kpi-approved-border);
+    }
+    .approved-card .kpi-label {
+      color: var(--kpi-approved-text);
+    }
+    .approved-icon {
+      background: rgba(5, 150, 105, 0.14);
+      color: #059669;
+    }
+    .approved-value {
+      color: var(--kpi-approved-num);
+    }
+    .approved-pill {
+      background: rgba(5, 150, 105, 0.15);
+      color: var(--kpi-approved-text);
+    }
+
+    /* Card 3: Pending */
+    .pending-card {
+      background: var(--kpi-pending-bg);
+      border-color: var(--kpi-pending-border);
+    }
+    .pending-card .kpi-label {
+      color: var(--kpi-pending-text);
+    }
+    .pending-icon {
+      background: rgba(217, 119, 6, 0.14);
+      color: #D97706;
+    }
+    .pending-value {
+      color: var(--kpi-pending-num);
+    }
+    .pending-pill {
+      background: rgba(217, 119, 6, 0.15);
+      color: var(--kpi-pending-text);
+    }
+
+    /* Card 4: Rejected */
+    .rejected-card {
+      background: var(--kpi-rejected-bg);
+      border-color: var(--kpi-rejected-border);
+    }
+    .rejected-card .kpi-label {
+      color: var(--kpi-rejected-text);
+    }
+    .rejected-icon {
+      background: rgba(220, 38, 38, 0.14);
+      color: #DC2626;
+    }
+    .rejected-value {
+      color: var(--kpi-rejected-num);
+    }
+    .rejected-pill {
+      background: rgba(220, 38, 38, 0.15);
+      color: var(--kpi-rejected-text);
+    }
+
+    /* ── Main Records Card ── */
+    .records-card {
+      background: var(--card-bg);
+      border-radius: 18px;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+      overflow: hidden;
+    }
+    .records-header-row {
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      border-bottom: 1px solid var(--line-soft);
+      flex-wrap: wrap;
+    }
+    .records-title-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .records-title {
+      font-size: 19px;
+      font-weight: 800;
+      color: #0F172A;
+      letter-spacing: -0.01em;
+    }
+    .records-caption {
+      font-size: 12.5px;
+      color: var(--text-subtle);
+    }
+
+    /* Search toolbar */
+    .search-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .search-input-wrap {
+      position: relative;
+      min-width: 250px;
+    }
+    .search-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #94A3B8;
+      pointer-events: none;
+    }
+    .search-field {
+      width: 100%;
+      height: 38px;
+      padding: 0 14px 0 36px;
+      background: #F8FAFC;
+      border: 1.5px solid var(--border-color);
+      border-radius: 9px;
+      font-size: 13px;
+      color: #1E293B;
+      outline: none;
+      transition: all 0.15s ease;
+    }
+    .search-field:focus {
+      border-color: var(--primary-orange);
+      background: #FFFFFF;
+      box-shadow: 0 0 0 3px rgba(242, 140, 56, 0.12);
+    }
+    .search-submit-btn {
+      height: 38px;
+      padding: 0 18px;
+      background: var(--primary-orange);
+      color: #FFFFFF;
+      border: none;
+      border-radius: 9px;
+      font-size: 13px;
+      font-weight: 650;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .search-submit-btn:hover {
+      background: var(--orange-hover);
+      box-shadow: 0 2px 8px rgba(242, 140, 56, 0.3);
+    }
+
+    .filter-select-wrap {
+      position: relative;
+    }
+    .filter-select {
+      height: 38px;
+      padding: 0 32px 0 12px;
+      background: #F8FAFC;
+      border: 1.5px solid var(--border-color);
+      border-radius: 9px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #334155;
+      outline: none;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      transition: all 0.15s ease;
+    }
+    .filter-select:focus {
+      border-color: var(--primary-orange);
+      box-shadow: 0 0 0 3px rgba(242, 140, 56, 0.12);
+    }
+    .filter-arrow {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #94A3B8;
+      pointer-events: none;
+      font-size: 11px;
+    }
+
+    /* ── Table Styling ── */
+    .table-container {
+      width: 100%;
+      overflow-x: auto;
+    }
+    .attendance-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 13px;
+      min-width: 860px;
+    }
+    .attendance-table thead {
+      background: #FAFBFD;
+      border-bottom: 1px solid #EDF2F7;
+    }
+    .attendance-table th {
+      padding: 13px 18px;
+      font-size: 11.5px;
+      font-weight: 750;
+      color: #64748B;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .attendance-table td {
+      padding: 14px 18px;
+      border-bottom: 1px solid #F1F5F9;
+      vertical-align: middle;
+    }
+
+    /* 3.5px Colored Indicator on left of each row matching status */
+    .table-row {
+      cursor: pointer;
+      transition: background 0.12s ease;
+      background: #FFFFFF;
+    }
+    .table-row:hover {
+      background: #F8FAFC;
+    }
+    .table-row.indicator-approved {
+      border-left: 3.5px solid #10B981;
+    }
+    .table-row.indicator-pending {
+      border-left: 3.5px solid #F59E0B;
+    }
+    .table-row.indicator-rejected {
+      border-left: 3.5px solid #EF4444;
+    }
+
+    /* Columns */
+    .col-sl {
+      width: 65px;
+      text-align: center;
+    }
+    .sl-number {
+      font-weight: 750;
+      color: #1E293B;
+      font-size: 13.5px;
+    }
+
+    .col-date {
+      width: 170px;
+      white-space: nowrap;
+    }
+    .primary-date {
+      font-weight: 700;
+      color: #1E293B;
+      font-size: 13.5px;
+    }
+    .secondary-sub {
+      font-size: 12px;
+      color: #94A3B8;
+      margin-top: 3px;
+    }
+
+    .col-subject {
+      width: 240px;
+    }
+    .subject-pill {
+      display: inline-block;
+      background: #EEF2FF;
+      border: 1px solid #E0E7FF;
+      color: #4F46E5;
+      font-size: 12.5px;
+      font-weight: 650;
+      padding: 3px 10px;
+      border-radius: 7px;
+      max-width: 220px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .purpose-sub {
+      font-size: 12px;
+      color: #64748B;
+      margin-top: 4px;
+      max-width: 230px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .col-faculty {
+      width: 230px;
+    }
+    .faculty-cell {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+    }
+    .faculty-avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      color: #FFFFFF;
+      font-size: 12px;
+      font-weight: 750;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      letter-spacing: 0.02em;
+    }
+    .faculty-avatar.blue { background: #3B82F6; }
+    .faculty-avatar.purple { background: #8B5CF6; }
+    .faculty-details {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .faculty-name {
+      font-size: 13px;
+      font-weight: 650;
+      color: #1E293B;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .faculty-role {
+      font-size: 11.5px;
+      color: #64748B;
+      margin-top: 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .col-status {
+      width: 130px;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 12px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+    .status-badge.approved {
+      background: #DCFCE7;
+      border: 1px solid #BBF7D0;
+      color: #15803D;
+    }
+    .status-dot.green { background: #16A34A; }
+
+    .status-badge.pending {
+      background: #FEF3C7;
+      border: 1px solid #FDE68A;
+      color: #B45309;
+    }
+    .status-dot.amber { background: #D97706; }
+
+    .status-badge.rejected {
+      background: #FEE2E2;
+      border: 1px solid #FECACA;
+      color: #B91C1C;
+    }
+    .status-dot.red { background: #DC2626; }
+
+    .col-action {
+      width: 130px;
+      text-align: right;
+    }
+    .view-link-btn {
+      background: transparent;
+      border: none;
+      color: #475569;
+      font-size: 13px;
+      font-weight: 650;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+      padding: 6px 10px;
+      border-radius: 8px;
+      transition: all 0.15s ease;
+    }
+    .view-link-btn:hover {
+      color: var(--primary-orange);
+      background: #FFF7ED;
+    }
+    .view-link-btn:hover .view-arrow {
+      transform: translateX(3px);
+    }
+    .view-arrow {
+      transition: transform 0.15s ease;
+    }
+
+    /* ── Table Footer & Pagination ── */
+    .table-footer {
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-top: 1px solid #F1F5F9;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .entries-info {
+      font-size: 13px;
+      font-weight: 550;
+      color: #64748B;
+    }
+    .pagination-controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .page-nav-btn {
+      height: 34px;
+      padding: 0 12px;
+      border: 1px solid var(--border-color);
+      background: #FFFFFF;
+      color: #475569;
+      border-radius: 8px;
+      font-size: 12.5px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .page-nav-btn:hover:not(:disabled) {
+      border-color: #CBD5E1;
+      color: #1E293B;
+      background: #F8FAFC;
+    }
+    .page-nav-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    .page-num-btn {
+      min-width: 34px;
+      height: 34px;
+      padding: 0 8px;
+      border: 1px solid var(--border-color);
+      background: #FFFFFF;
+      color: #475569;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .page-num-btn:hover:not(.active) {
+      background: #F8FAFC;
+      border-color: #CBD5E1;
+    }
+    .page-num-btn.active {
+      background: var(--primary-orange);
+      border-color: var(--primary-orange);
+      color: #FFFFFF;
+      box-shadow: 0 2px 6px rgba(242, 140, 56, 0.35);
+    }
+
+    /* Modal for View Details */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.5);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-backdrop.open {
+      display: flex;
+    }
+    .modal-content {
+      background: #FFFFFF;
+      width: 100%;
+      max-width: 500px;
+      border-radius: 16px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+      padding: 24px;
+      animation: modalFadeIn 0.2s ease;
+    }
+    @keyframes modalFadeIn {
+      from { opacity: 0; transform: scale(0.96); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .modal-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: #0F172A;
+    }
+    .modal-close {
+      border: none;
+      background: transparent;
+      font-size: 20px;
+      cursor: pointer;
+      color: #64748B;
+    }
+
+    /* Responsive */
+    @media screen and (max-width: 1024px) {
+      .sidebar { width: 200px; }
+      .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+      .main-viewport { padding: 20px; }
+    }
+    @media screen and (max-width: 768px) {
+      .app-layout { flex-direction: column; }
+      .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border-color); padding: 12px; }
+      .nav-list { flex-direction: row; overflow-x: auto; }
+      .college-seal-card { display: none; }
+      .search-toolbar { width: 100%; }
+      .search-input-wrap { min-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Topbar ── -->
+  <header class="topbar">
+    <a href="#" class="brand">
+      <div class="brand-logo">✓</div>
+      <div>
+        Attend<span style="color:var(--primary-orange)">Ease</span>
+        <span class="brand-tag">Permission Portal</span>
+      </div>
+    </a>
+    <div class="top-actions">
+      <button class="top-btn" id="helplineBtn">📞 Helpline</button>
+      <button class="top-btn orange">🛡️ View Permissions</button>
+      <div class="user-profile">
+        <div class="user-avatar">TG</div>
+        <span>TAPPETA GANESH REDDY</span>
+        <span style="color:#94A3B8; font-size:11px;">▼</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="app-layout">
+    <!-- ── Sidebar ── -->
+    <aside class="sidebar">
+      <ul class="nav-list">
+        <li class="nav-item"><a href="#"><span class="nav-icon">🏠</span> Home</a></li>
+        <li class="nav-item"><a href="#"><span class="nav-icon">🔔</span> Notifications</a></li>
+        <li class="nav-item new-req"><a href="#"><span class="nav-icon">➕</span> New Request</a></li>
+        <li class="nav-item active"><a href="#"><span class="nav-icon">🕒</span> History</a></li>
+        <li class="nav-item"><a href="#"><span class="nav-icon">📜</span> Certificates</a></li>
+        <li class="nav-item"><a href="#"><span class="nav-icon">👤</span> Profile</a></li>
+      </ul>
+      <div class="college-seal-card">
+        <strong>CSD &amp; CSIT</strong>
+        SRKR Engineering College
+      </div>
+    </aside>
+
+    <!-- ── Main Content Viewport ── -->
+    <main class="main-viewport">
+      <!-- ── Page Header ── -->
+      <div class="history-page-header">
+        <div class="title-group">
+          <h1 class="main-title">
+            All Requests <span class="total-badge" id="headerTotalBadge">21 Total</span>
+          </h1>
+          <p class="main-subtitle">
+            Your complete attendance permission history and approval records.
+          </p>
+        </div>
+
+        <div class="header-actions">
+          <button type="button" class="icon-action-btn" id="refreshBtn" title="Refresh attendance records" aria-label="Refresh">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+              <path d="M3 3v5h5"/>
+              <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+              <path d="M16 21h5v-5"/>
+            </svg>
+          </button>
+
+          <button type="button" class="export-btn" id="exportBtn" title="Export records to CSV">
+            <span class="excel-icon">📊</span>
+            <span>Export CSV</span>
+          </button>
+
+          <button type="button" class="new-request-btn" id="newReqBtn">
+            <span>+</span>
+            <span>New Request</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ── 4 KPI Summary Cards (Pastel Fills) ── -->
+      <div class="kpi-grid">
+        <!-- Card 1: TOTAL REQUESTS -->
+        <div class="kpi-card total-card">
+          <div class="kpi-top">
+            <span class="kpi-label">TOTAL REQUESTS</span>
+            <div class="kpi-icon-wrap total-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+                <polyline points="2 17 12 22 22 17"/>
+                <polyline points="2 12 12 17 22 12"/>
+              </svg>
+            </div>
+          </div>
+          <div class="kpi-bottom">
+            <span class="kpi-value total-value" id="kpiTotal">21</span>
+            <span class="kpi-pill total-pill">100% History</span>
+          </div>
+        </div>
+
+        <!-- Card 2: APPROVED -->
+        <div class="kpi-card approved-card">
+          <div class="kpi-top">
+            <span class="kpi-label">APPROVED</span>
+            <div class="kpi-icon-wrap approved-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                <polyline points="22 4 12 14.01 9 11.01"/>
+              </svg>
+            </div>
+          </div>
+          <div class="kpi-bottom">
+            <span class="kpi-value approved-value" id="kpiApproved">18</span>
+            <span class="kpi-pill approved-pill" id="kpiApprovedRate">85.7% Rate</span>
+          </div>
+        </div>
+
+        <!-- Card 3: PENDING -->
+        <div class="kpi-card pending-card">
+          <div class="kpi-top">
+            <span class="kpi-label">PENDING</span>
+            <div class="kpi-icon-wrap pending-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+              </svg>
+            </div>
+          </div>
+          <div class="kpi-bottom">
+            <span class="kpi-value pending-value" id="kpiPending">2</span>
+            <span class="kpi-pill pending-pill">In Review</span>
+          </div>
+        </div>
+
+        <!-- Card 4: REJECTED -->
+        <div class="kpi-card rejected-card">
+          <div class="kpi-top">
+            <span class="kpi-label">REJECTED</span>
+            <div class="kpi-icon-wrap rejected-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="15" y1="9" x2="9" y2="15"/>
+                <line x1="9" y1="9" x2="15" y2="15"/>
+              </svg>
+            </div>
+          </div>
+          <div class="kpi-bottom">
+            <span class="kpi-value rejected-value" id="kpiRejected">1</span>
+            <span class="kpi-pill rejected-pill" id="kpiRejectedRate">4.7% Rate</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Main Records Card ── -->
+      <div class="records-card">
+        <div class="records-header-row">
+          <div class="records-title-wrap">
+            <h2 class="records-title">Permission Records</h2>
+            <span class="records-caption">Official student attendance log</span>
+          </div>
+
+          <form class="search-toolbar" id="searchForm" onsubmit="event.preventDefault(); applyFilter();">
+            <div class="search-input-wrap">
+              <span class="search-icon">🔍</span>
+              <input type="text" id="searchInput" class="search-field" placeholder="Search subjects or faculty...">
+            </div>
+
+            <button type="submit" class="search-submit-btn">Search</button>
+
+            <div class="filter-select-wrap">
+              <select id="statusFilter" class="filter-select" onchange="applyFilter()">
+                <option value="all">All Statuses (21)</option>
+                <option value="Approved">Approved (18)</option>
+                <option value="Pending">Pending (2)</option>
+                <option value="Rejected">Rejected (1)</option>
+              </select>
+              <span class="filter-arrow">▼</span>
+            </div>
+
+            <div class="filter-select-wrap">
+              <select id="subjectFilter" class="filter-select" onchange="applyFilter()">
+                <option value="all">All Subjects</option>
+                <option value="Project Development">Project Development</option>
+              </select>
+              <span class="filter-arrow">▼</span>
+            </div>
+          </form>
+        </div>
+
+        <div class="table-container">
+          <table class="attendance-table">
+            <thead>
+              <tr>
+                <th class="col-sl">SL NO.</th>
+                <th class="col-date">DATE &amp; SUBMISSION</th>
+                <th class="col-subject">SUBJECT / PURPOSE</th>
+                <th class="col-faculty">APPROVING FACULTY</th>
+                <th class="col-status">STATUS</th>
+                <th class="col-action">ACTION</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody">
+              <!-- Dynamically populated rows -->
+            </tbody>
+          </table>
+        </div>
+
+        <div class="table-footer">
+          <span class="entries-info" id="entriesInfo">Showing 1 to 10 of 21 entries</span>
+          <div class="pagination-controls" id="paginationControls">
+            <!-- Dynamically populated pagination buttons -->
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Detail Modal -->
+  <div class="modal-backdrop" id="modalBackdrop" onclick="closeModal(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modalTitle">Request Details</h3>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div id="modalBody" style="font-size: 14px; line-height: 1.6; color: #334155;"></div>
+    </div>
+  </div>
+
+  <script>
+    const sampleData = [
+      { id: "req-1", date: "14 Oct 2026", submittedAgo: "9 days ago", subject: "Project Development", purpose: "Regular Lab Session", faculty: "K V V Satya Trinadh", role: "Department Mentor", initials: "ST", avatarColor: "blue", status: "Approved" },
+      { id: "req-2", date: "14 Oct 2026", submittedAgo: "9 days ago", subject: "Project Development", purpose: "Regular Lab Session", faculty: "K V V Satya Trinadh", role: "Department Mentor", initials: "ST", avatarColor: "blue", status: "Pending" },
+      { id: "req-3", date: "13 Oct 2026", submittedAgo: "9 days ago", subject: "Project Development", purpose: "Regular Lab Session", faculty: "N. Aneela", role: "Assistant Professor", initials: "NA", avatarColor: "purple", status: "Approved" },
+      { id: "req-4", date: "13 Oct 2026", submittedAgo: "9 days ago", subject: "Project Development", purpose: "Regular Lab Session", faculty: "K V V Satya Trinadh", role: "Department Mentor", initials: "ST", avatarColor: "blue", status: "Rejected" },
+      { id: "req-5", date: "10 Oct 2026", submittedAgo: "14 days ago", subject: "Project Development", purpose: "Regular Lab Session", faculty: "N. Aneela", role: "Assistant Professor", initials: "NA", avatarColor: "purple", status: "Approved" },
+      { id: "req-6", date: "09 Oct 2026", submittedAgo: "15 days ago", subject: "Project Development", purpose: "Regular Lab Session", faculty: "K V V Satya Trinadh", role: "Department Mentor", initials: "ST", avatarColor: "blue", status: "Approved" },
+      { id: "req-7", date: "09 Oct 2026", submittedAgo: "15 days ago", subject: "Project Development", purpose: "Regular Lab Session", faculty: "N. Aneela", role: "Assistant Professor", initials: "NA", avatarColor: "purple", status: "Approved" },
+      { id: "req-8", date: "11 Sep 2026", submittedAgo: "about 1 month ago", subject: "Project Development", purpose: "Regular Lab Session", faculty: "K V V Satya Trinadh", role: "Department Mentor", initials: "ST", avatarColor: "blue", status: "Approved" },
+      { id: "req-9", date: "11 Sep 2026", submittedAgo: "about 1 month ago", subject: "Project Development", purpose: "Regular Lab Session", faculty: "K V V Satya Trinadh", role: "Department Mentor", initials: "ST", avatarColor: "blue", status: "Approved" },
+      { id: "req-10", date: "11 Sep 2026", submittedAgo: "about 1 month ago", subject: "Project Development", purpose: "Regular Lab Session", faculty: "K V V Satya Trinadh", role: "Department Mentor", initials: "ST", avatarColor: "blue", status: "Approved" },
+      { id: "req-11", date: "10 Sep 2026", submittedAgo: "about 1 month ago", subject: "Project Development", purpose: "Regular Lab Session", faculty: "K V V Satya Trinadh", role: "Department Mentor", initials: "ST", avatarColor: "blue", status: "Approved" },
+      { id: "req-12", date: "10 Sep 2026", submittedAgo: "about 1 month ago", subject: "Project Development", purpose: "Regular Lab Session", faculty: "K V V Satya Trinadh", role: "Department Mentor", initials: "ST", avatarColor: "blue", status: "Approved" },
+      { id: "req-13", date: "09 Sep 2026", submittedAgo: "about 1 month ago", subject: "Project Development", purpose: "Regular Lab Session", faculty: "K V V Satya Trinadh", role: "Department Mentor", initials: "ST", avatarColor: "blue", status: "Approved" },
+      { id: "req-14", date: "08 Sep 2026", submittedAgo: "about 1 month ago", subject: "Project Development", purpose: "Regular Lab Session", faculty: "N. Aneela", role: "Assistant Professor", initials: "NA", avatarColor: "purple", status: "Approved" },
+      { id: "req-15", date: "07 Sep 2026", submittedAgo: "about 1 month ago", subject: "Project Development", purpose: "Regular Lab Session", faculty: "N. Aneela", role: "Assistant Professor", initials: "NA", avatarColor: "purple", status: "Approved" },
+      { id: "req-16", date: "06 Sep 2026", submittedAgo: "about 1 month ago", subject: "Project Development", purpose: "Regular Lab Session", faculty: "K V V Satya Trinadh", role: "Department Mentor", initials: "ST", avatarColor: "blue", status: "Pending" },
+      { id: "req-17", date: "05 Sep 2026", submittedAgo: "about 1 month ago", subject: "Project Development", purpose: "Regular Lab Session", faculty: "N. Aneela", role: "Assistant Professor", initials: "NA", avatarColor: "purple", status: "Approved" },
+      { id: "req-18", date: "04 Sep 2026", submittedAgo: "about 1 month ago", subject: "Project Development", purpose: "Regular Lab Session", faculty: "K V V Satya Trinadh", role: "Department Mentor", initials: "ST", avatarColor: "blue", status: "Approved" },
+      { id: "req-19", date: "03 Sep 2026", submittedAgo: "about 1 month ago", subject: "Project Development", purpose: "Regular Lab Session", faculty: "N. Aneela", role: "Assistant Professor", initials: "NA", avatarColor: "purple", status: "Approved" },
+      { id: "req-20", date: "02 Sep 2026", submittedAgo: "about 1 month ago", subject: "Project Development", purpose: "Regular Lab Session", faculty: "K V V Satya Trinadh", role: "Department Mentor", initials: "ST", avatarColor: "blue", status: "Approved" },
+      { id: "req-21", date: "01 Sep 2026", submittedAgo: "about 1 month ago", subject: "Project Development", purpose: "Regular Lab Session", faculty: "N. Aneela", role: "Assistant Professor", initials: "NA", avatarColor: "purple", status: "Approved" }
+    ];
+
+    let currentPage = 1;
+    const pageSize = 10;
+    let filteredData = [...sampleData];
+
+    function applyFilter() {
+      const q = document.getElementById('searchInput').value.toLowerCase().trim();
+      const status = document.getElementById('statusFilter').value;
+      const subject = document.getElementById('subjectFilter').value;
+
+      filteredData = sampleData.filter(item => {
+        const matchStatus = status === 'all' || item.status === status;
+        const matchSubject = subject === 'all' || item.subject === subject;
+        const matchSearch = !q ||
+          item.subject.toLowerCase().includes(q) ||
+          item.faculty.toLowerCase().includes(q) ||
+          item.date.toLowerCase().includes(q) ||
+          item.purpose.toLowerCase().includes(q);
+        return matchStatus && matchSubject && matchSearch;
+      });
+
+      currentPage = 1;
+      renderTable();
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('tableBody');
+      const totalPages = Math.max(1, Math.ceil(filteredData.length / pageSize));
+      currentPage = Math.min(currentPage, totalPages);
+
+      const startIndex = (currentPage - 1) * pageSize;
+      const endIndex = Math.min(startIndex + pageSize, filteredData.length);
+      const currentRows = filteredData.slice(startIndex, endIndex);
+
+      if (filteredData.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="6" style="text-align:center; padding: 48px 16px; color: #94A3B8;">
+              <div style="font-size: 32px; margin-bottom: 8px;">🔍</div>
+              <strong style="color:#1E293B; font-size:15px; display:block;">No records match your search or selected filters.</strong>
+              <p style="margin-top:4px;">Try searching with a different keyword or reset filters.</p>
+            </td>
+          </tr>
+        `;
+      } else {
+        tbody.innerHTML = currentRows.map((row, idx) => {
+          const rowNum = startIndex + idx + 1;
+          const statusLower = row.status.toLowerCase();
+          const dotClass = statusLower === 'approved' ? 'green' : statusLower === 'pending' ? 'amber' : 'red';
+
+          return `
+            <tr class="table-row indicator-${statusLower}" onclick="openDetails('${row.id}')">
+              <td class="col-sl"><span class="sl-number">${rowNum}</span></td>
+              <td class="col-date">
+                <div class="primary-date">${row.date}</div>
+                <div class="secondary-sub">Submitted ${row.submittedAgo}</div>
+              </td>
+              <td class="col-subject">
+                <span class="subject-pill">${row.subject}</span>
+                <div class="purpose-sub">${row.purpose}</div>
+              </td>
+              <td class="col-faculty">
+                <div class="faculty-cell">
+                  <div class="faculty-avatar ${row.avatarColor}">${row.initials}</div>
+                  <div class="faculty-details">
+                    <span class="faculty-name">${row.faculty}</span>
+                    <span class="faculty-role">${row.role}</span>
+                  </div>
+                </div>
+              </td>
+              <td class="col-status">
+                <span class="status-badge ${statusLower}">
+                  <span class="status-dot ${dotClass}"></span>
+                  ${row.status}
+                </span>
+              </td>
+              <td class="col-action" onclick="event.stopPropagation()">
+                <button type="button" class="view-link-btn" onclick="openDetails('${row.id}')">
+                  <span>View Details</span>
+                  <span class="view-arrow">→</span>
+                </button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      // Update info text
+      const entriesInfo = document.getElementById('entriesInfo');
+      if (filteredData.length === 0) {
+        entriesInfo.textContent = 'Showing 0 of 0 entries';
+      } else {
+        entriesInfo.textContent = `Showing ${startIndex + 1} to ${endIndex} of ${filteredData.length} entries`;
+      }
+
+      // Render pagination
+      const paginationControls = document.getElementById('paginationControls');
+      let paginationHTML = `
+        <button type="button" class="page-nav-btn" ${currentPage === 1 ? 'disabled' : ''} onclick="goToPage(${currentPage - 1})">
+          ‹ Prev
+        </button>
+      `;
+
+      for (let p = 1; p <= totalPages; p++) {
+        paginationHTML += `
+          <button type="button" class="page-num-btn ${p === currentPage ? 'active' : ''}" onclick="goToPage(${p})">
+            ${p}
+          </button>
+        `;
+      }
+
+      paginationHTML += `
+        <button type="button" class="page-nav-btn" ${currentPage === totalPages ? 'disabled' : ''} onclick="goToPage(${currentPage + 1})">
+          Next ›
+        </button>
+      `;
+
+      paginationControls.innerHTML = paginationHTML;
+    }
+
+    function goToPage(page) {
+      currentPage = page;
+      renderTable();
+    }
+
+    function openDetails(id) {
+      const item = sampleData.find(d => d.id === id);
+      if (!item) return;
+      document.getElementById('modalTitle').textContent = `Permission Record #${item.id}`;
+      document.getElementById('modalBody').innerHTML = `
+        <div style="margin-bottom:12px;"><strong>Subject:</strong> ${item.subject}</div>
+        <div style="margin-bottom:12px;"><strong>Purpose / Session:</strong> ${item.purpose}</div>
+        <div style="margin-bottom:12px;"><strong>Date:</strong> ${item.date} (${item.submittedAgo})</div>
+        <div style="margin-bottom:12px;"><strong>Approving Faculty:</strong> ${item.faculty} (${item.role})</div>
+        <div style="margin-bottom:12px;"><strong>Status:</strong> <span style="font-weight:700; color: ${item.status === 'Approved' ? '#059669' : item.status === 'Pending' ? '#D97706' : '#DC2626'}">${item.status}</span></div>
+      `;
+      document.getElementById('modalBackdrop').classList.add('open');
+    }
+
+    function closeModal() {
+      document.getElementById('modalBackdrop').classList.remove('open');
+    }
+
+    // Refresh button feedback
+    document.getElementById('refreshBtn').onclick = function() {
+      this.classList.add('spinning');
+      setTimeout(() => {
+        this.classList.remove('spinning');
+        applyFilter();
+      }, 600);
+    };
+
+    // Export CSV
+    document.getElementById('exportBtn').onclick = function() {
+      const headers = ['#', 'Date', 'Submitted', 'Subject', 'Purpose', 'Faculty', 'Role', 'Status'];
+      const rows = filteredData.map((d, i) => [i + 1, d.date, d.submittedAgo, d.subject, d.purpose, d.faculty, d.role, d.status]);
+      const csv = [headers.join(','), ...rows.map(r => r.map(c => `"${c}"`).join(','))].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `attendease_history_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+    };
+
+    // Initial render
+    renderTable();
+  </script>
+</body>
+</html>
