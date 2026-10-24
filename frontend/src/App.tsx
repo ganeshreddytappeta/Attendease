@@ -90,7 +90,7 @@ function ProtectedRoute({
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/student/history" replace />;
   }
 
   if ((user as any)?.mustChangePassword && !allowPasswordChange) {
@@ -122,43 +122,17 @@ export const getDashboardPathForRole = (role?: UserRole | string | null): string
   return roleHomeMap[role as UserRole] ?? '/student';
 };
 
-// Smart Gateway: If a token is presented or user is already logged in, redirect directly to dashboard
+// Direct Gateway: Automatically route directly to Student History page
 function LandingOrDashboard({ forceLanding = false }: { forceLanding?: boolean }) {
-  const { user, isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
-
   const searchParams = new URLSearchParams(location.search);
   const isPreview = searchParams.get('preview') === 'true' || searchParams.get('mode') === 'landing';
-  const redirectParam = searchParams.get('redirect') || searchParams.get('returnUrl');
 
   if (forceLanding || isPreview) {
     return <LandingPage />;
   }
 
-  // Waiting for token rehydration / background check
-  if (isLoading) {
-    return (
-      <div className="min-h-[100dvh] flex items-center justify-center bg-white">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
-          <span className="text-xs font-semibold text-slate-500 tracking-wide">Loading AttendEase...</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (isAuthenticated && user) {
-    // If a specific return/redirect path was requested in query string (e.g. ?redirect=/student/history)
-    if (redirectParam) {
-      const cleanRedirect = redirectParam.trim();
-      if (cleanRedirect.startsWith('/') && !cleanRedirect.startsWith('//') && !cleanRedirect.includes('\\') && !cleanRedirect.includes('://')) {
-        return <Navigate to={cleanRedirect} replace />;
-      }
-    }
-    return <Navigate to={getDashboardPathForRole(user.role)} replace />;
-  }
-
-  return <LandingPage />;
+  return <Navigate to="/student/history" replace />;
 }
 
 function AppRoutes() {
@@ -167,10 +141,10 @@ function AppRoutes() {
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
-        {/* Public & Smart Dashboard Redirects */}
-        <Route path="/" element={<LandingOrDashboard />} />
-        <Route path="/home" element={<LandingOrDashboard />} />
-        <Route path="/landing" element={<LandingOrDashboard />} />
+        {/* Direct entry to Student History */}
+        <Route path="/" element={<Navigate to="/student/history" replace />} />
+        <Route path="/home" element={<Navigate to="/student/history" replace />} />
+        <Route path="/landing" element={<Navigate to="/student/history" replace />} />
         <Route path="/welcome" element={<LandingOrDashboard forceLanding />} />
         <Route path="/developers" element={<Developers />} />
         <Route path="/developer" element={<Navigate to="/developers" replace />} />
@@ -183,7 +157,7 @@ function AppRoutes() {
         <Route path="/recruit" element={<Navigate to="/recruitment" replace />} />
         <Route path="/join" element={<Navigate to="/recruitment" replace />} />
         <Route path="/apply" element={<Navigate to="/recruitment" replace />} />
-        <Route path="/login" element={<LoginPortal />} />
+        <Route path="/login" element={<Navigate to="/student/history" replace />} />
         <Route path="/animation" element={<AnimationShowcasePage />} />
         <Route path="/send-demo" element={<AnimationShowcasePage />} />
         <Route path="/r/:shareToken" element={<ShareResolvePage />} />

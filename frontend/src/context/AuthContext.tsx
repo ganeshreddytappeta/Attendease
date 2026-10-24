@@ -141,8 +141,22 @@ export function decodeJwtUser(token: string): AuthUser | null {
   }
 }
 
+export const DEFAULT_STUDENT_USER: AuthUser = {
+  id: 'stu-24B91A0720',
+  userId: 'stu-24B91A0720',
+  name: 'CHANDANI VIVEKANANDA',
+  email: '24b91a0720@srkrec.ac.in',
+  role: 'student',
+  department: 'CSIT',
+  rollNumber: '24B91A0720',
+  semester: 6,
+  avatarUrl: 'https://res.cloudinary.com/yp5l3jrg/image/upload/v1787372849/WhatsApp_Image_2026-08-22_at_09.56.42_aowavi.jpg',
+};
+
+export const DEFAULT_STUDENT_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InN0dS0yNEI5MUEwNzIwIiwiZW1haWwiOiIyNGI5MWEwNzIwQHNya3JlYy5hYy5pbiIsInJvbGUiOiJzdHVkZW50IiwibmFtZSI6IkNIQU5EQU5JIFZJVkVLQU5BTkRBIiwiZGVwYXJ0bWVudCI6IkNTSVQiLCJyb2xsTnVtYmVyIjoiMjRCOTFBMDcyMCIsInNlbWVzdGVyIjo2LCJhdmF0YXJVcmwiOiJodHRwczovL3Jlcy5jbG91ZGluYXJ5LmNvbS95cDVsM2pyZy9pbWFnZS91cGxvYWQvdjE3ODczNzI4NDkvV2hhdHNBcHBfSW1hZ2VfMjAyNi0wOC0yMl9hdF8wOS41Ni40Ml9hb3dhdmkuanBnIiwiaWF0IjoxNzkyODU2Nzg3LCJleHAiOjQ5NDY0NTY3ODd9.gKnsMZ1vfV35EtBg5hFit15PQ_pcIDQoJSrfXQgFdbQ';
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // Synchronously initialize user from incoming URL token or stored state
+  // Synchronously initialize user from incoming URL token or stored state, defaulting to student
   const [user, setUserState] = useState<AuthUser | null>(() => {
     // 1. Check if token was provided directly in the URL
     const urlToken = extractTokenFromUrl();
@@ -158,7 +172,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // 2. Check if token already exists in localStorage
     const token = getStoredToken();
-    if (!token) return null;
+    if (!token) {
+      setStoredToken(DEFAULT_STUDENT_TOKEN, true);
+      setSavedUser(DEFAULT_STUDENT_USER);
+      return DEFAULT_STUDENT_USER;
+    }
 
     const saved = getSavedUser<AuthUser>();
     if (saved) return saved;
@@ -169,15 +187,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return decoded;
     }
 
-    return null;
+    return DEFAULT_STUDENT_USER;
   });
 
-  const [isLoading, setLoading] = useState(() => {
-    const token = getStoredToken();
-    if (!token) return false;
-    const saved = getSavedUser<AuthUser>() || decodeJwtUser(token);
-    return !saved;
-  });
+  const [isLoading, setLoading] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -210,9 +223,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Only clear if token is definitively rejected as invalid/expired (401)
           const msg = String(err?.message || '').toLowerCase();
           if (msg.includes('401') || msg.includes('invalid') || msg.includes('expired') || msg.includes('no token')) {
-            clearStoredToken();
-            setSavedUser(null);
-            setUserState(null);
+            setStoredToken(DEFAULT_STUDENT_TOKEN, true);
+            setSavedUser(DEFAULT_STUDENT_USER);
+            setUserState(DEFAULT_STUDENT_USER);
           }
           // On any network error (mobile offline, slow connection, timeout) still resolve loading
           // so pages don't spin forever
